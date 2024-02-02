@@ -1,6 +1,9 @@
 import os
 import json
 
+from network.layer import Layer
+from network.network import Network
+
 
 class ConfigParser:
 
@@ -21,16 +24,37 @@ class ConfigParser:
         self._validate_hidden_layers()
         self._validate_output_layer()
 
-        # create the objects
-        print("done")
+        globals_config = self.config["GLOBALS"]
+        network = Network(loss_function=globals_config["loss_function"],
+                          learning_rate=globals_config["learning_rate"],
+                          weight_reg_rate=globals_config["weight_reg_rate"],
+                          weight_reg_type=globals_config["weight_reg_type"])
         
+        input_layer_config = [layer for layer in self.config["LAYERS"] if layer["layer_type"] == "input"][0]
+        input_layer = Layer(layer_type=input_layer_config["layer_type"],
+                            neurons=input_layer_config["neurons"])
+        network.add_layer(input_layer)
+        
+        hidden_layers_configs = [layer for layer in self.config["LAYERS"] if layer["layer_type"] == "hidden"]
+        for layer_config in hidden_layers_configs:
+            hidden_layer = Layer(layer_type=layer_config["layer_type"],
+                                 neurons=layer_config["neurons"],
+                                 activation_function=layer_config["activation_function"],
+                                 weight_range=layer_config["weight_range"],
+                                 bias_range=layer_config["bias_range"],
+                                 learning_rate=layer_config["learning_rate"])
+            network.add_layer(hidden_layer)
 
-        # Rules
-        # if output layer is type:softmax then the size of the layer is the same as the previous layer
-        # this means the network object can have the globals, and each layer can have its own private variables
-        # if softmax, no weights
-        # error if not one input and one output layer
-        # error if input layer has more keywords than layer type and neurons
+        output_layer_config = [layer for layer in self.config["LAYERS"] if layer["layer_type"] == "output"][0]
+        output_layer = Layer(layer_type=output_layer_config["layer_type"],
+                             neurons=output_layer_config["neurons"],
+                             activation_function=output_layer_config["activation_function"],
+                             weight_range=output_layer_config["weight_range"],
+                             bias_range=output_layer_config["bias_range"],
+                             learning_rate=output_layer_config["learning_rate"])
+        network.add_layer(output_layer)
+        
+        return network
     
     def _validate_globals(self):
         """
@@ -120,7 +144,11 @@ class ConfigParser:
                 raise ValueError(f"Invalid weight_range in hidden layer. It should be a list of two integers or floats")
 
             if not isinstance(layer["bias_range"], list) or len(layer["bias_range"]) != 2:
-                raise ValueError(f"Invalid bias_range in hidden layer. It should be a list of two integers or floats")  
+                raise ValueError(f"Invalid bias_range in hidden layer. It should be a list of two integers or floats")
+            
+            unexpected_keys = [key for key in layer if key not in required + optional]
+            if unexpected_keys:
+                raise ValueError(f"Unexpected key(s) in hidden layer: {', '.join(unexpected_keys)}")
 
     def _validate_output_layer(self):
         # TODO

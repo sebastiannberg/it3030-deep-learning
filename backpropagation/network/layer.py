@@ -2,7 +2,7 @@
 
 class Layer:
 
-    def __init__(self, layer_type, neurons, activation_function, weight_range, bias_range, learning_rate=None):
+    def __init__(self, layer_type, neurons, activation_function=None, weight_range=None, bias_range=None, learning_rate=None):
         self.layer_type = layer_type
         self.neurons = neurons
         self.activation_function = activation_function
