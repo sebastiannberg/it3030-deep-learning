@@ -15,7 +15,7 @@
             "neurons": 100,
             "activation_function": "relu",
             "weight_range": [-0.1, 0.1],
-            "bias_range": null,
+            "bias_range": [0, 1],
             "learning_rate": 0.01
         },
         {
