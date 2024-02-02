@@ -8,11 +8,11 @@
     "LAYERS": [
         {
             "layer_type": "input",
-            "neurons": 20
+            "neurons": 100
         },
         {
             "layer_type": "hidden",
-            "neurons": 100,
+            "neurons": 200,
             "activation_function": "relu",
             "weight_range": [-0.1, 0.1],
             "bias_range": [0, 1],
@@ -28,7 +28,7 @@
         },
         {
             "layer_type": "output",
-            "neurons": 5,
+            "neurons": 4,
             "activation_function": "softmax",
             "weight_range": null,
             "bias_range": null,
