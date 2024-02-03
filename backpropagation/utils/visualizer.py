@@ -8,7 +8,7 @@ class Visualizer:
         # Assuming cases come in 5-item tuples
         images, _, labels, dims, flat = cases  # Unpack the 5-item tuple
         if flat:
-            images = [a.reshape(*dims) for a in images]
+            images = np.array([a.reshape(*dims) for a in images])
 
         # Choose random images
         random_indices = np.random.choice(

@@ -3,12 +3,13 @@
         "loss_function": "cross_entropy",
         "learning_rate": 0.1,
         "weight_reg_rate": null,
-        "weight_reg_type": null
+        "weight_reg_type": null,
+        "verbose": true
     },
     "LAYERS": [
         {
             "layer_type": "input",
-            "neurons": 100
+            "neurons": 2500
         },
         {
             "layer_type": "hidden",
@@ -30,8 +31,8 @@
             "layer_type": "output",
             "neurons": 4,
             "activation_function": "softmax",
-            "weight_range": null,
-            "bias_range": null,
+            "weight_range": [-0.1, 0.1],
+            "bias_range": [0, 1],
             "learning_rate": null
         }
     ]
