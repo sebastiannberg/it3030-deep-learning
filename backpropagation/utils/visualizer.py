@@ -23,5 +23,12 @@ class Visualizer:
 
         plt.show()
 
-    def plot_learning_progress(self, train_loss, validation_loss):
-        pass
+    def plot_learning_progression(self, train_loss, validation_loss):
+        plt.figure()
+        plt.title("Learning Progression")
+        plt.xlabel("Minibatch")
+        plt.ylabel("Loss")
+        plt.plot(train_loss, label="Train")
+        plt.plot(validation_loss, label="Validation")
+        plt.legend()
+        plt.show()
