@@ -1,6 +1,8 @@
 import numpy as np
 
-from activation_functions.identity import *
+from activation_functions.identity import identity, identity_derivative
+from activation_functions.relu import relu, relu_derivative
+from activation_functions.softmax import softmax
 
 
 class Layer:
@@ -31,14 +33,25 @@ class Layer:
                                               high=self.bias_range[1],
                                               size=(self.neurons, 1))
 
+    def apply_activation_function(self, x):
+        if self.activation_function == "identity":
+            return identity(x)
+        elif self.activation_function == "relu":
+            return relu(x)
+        elif self.activation_function == "softmax":
+            return softmax(x)
+
+    def apply_activation_function_derivative(self, x):
+        pass
+
     def forward_pass(self, input_tensor):
-        if self.layer_type == "input" and input_tensor.shape == (self.neurons, 1):
+        if self.layer_type == "input" and input_tensor.shape[0] == self.neurons:
             return input_tensor
-        elif self.layer_type == "input" and not input_tensor.shape == (self.neurons, 1):
+        elif self.layer_type == "input" and not input_tensor.shape[0] == self.neurons:
             raise ValueError(
                 f"Size of input {input_tensor.shape} does not match input layer size: {(self.neurons, 1)}")
-
-        ting = np.dot(self.weights, input_tensor)
-        ting += self.bias
-
-        return ting
+        print(self.weights.shape, input_tensor.shape)
+        z = np.dot(self.weights, input_tensor)
+        z += self.bias
+        output = self.apply_activation_function(z)
+        return output
