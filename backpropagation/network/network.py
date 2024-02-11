@@ -2,6 +2,7 @@ import numpy as np
 
 from network.layer import Layer
 from loss_functions.cross_entropy import cross_entropy
+from loss_functions.mse import mse, mse_derivative
 
 
 class Network:
@@ -17,9 +18,9 @@ class Network:
     def add_layer(self, layer: Layer):
         if isinstance(layer, Layer):
             if len(self.layers) == 0:
-                layer._set_previous_layer(None)
+                layer.set_previous_layer(None)
             else:
-                layer._set_previous_layer(self.layers[-1])
+                layer.set_previous_layer(self.layers[-1])
             layer.init_parameters()
             self.layers.append(layer)
         else:
@@ -56,19 +57,28 @@ class Network:
             yield features[selected_indices], targets[selected_indices]
 
     def forward_pass(self, features):
-        # Reshape features to column vectors using transpose
-        # TODO might not need to transpose because updated weight matrix shape
-        # TODO might still need to transpose, because we still want column vectors
+        # Reshape features to column vectors
         input_tensor = features.T
         # Perform forward pass through each layer
         for layer in self.layers:
             output_tensor = layer.forward_pass(input_tensor)
             # Update input to be previous layer output
             input_tensor = output_tensor
-        # Return final output from output layer transposed back to original shape
+        # Return final output transposed back to row wectors
         return output_tensor.T
 
     def compute_loss(self, predicted_outputs, targets):
         if self.loss_function == "cross_entropy":
-            loss = cross_entropy(predicted_outputs, targets)
-        return loss
+            return cross_entropy(predicted_outputs, targets)
+        elif self.loss_function == "mse":
+            return mse(predicted_outputs, targets)
+        else:
+            raise ValueError(f"Received unsupported loss function: {self.loss_function}")
+
+    def compute_jacobian_L_Z(self, predicted_outputs, targets):
+        if self.loss_function == "cross_entropy":
+            pass
+        elif self.loss_function == "mse":
+            return mse_derivative(predicted_outputs, targets)
+        else:
+            raise ValueError(f"Received unsupported loss function: {self.loss_function}")

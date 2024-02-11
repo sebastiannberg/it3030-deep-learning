@@ -19,7 +19,7 @@ class Layer:
         self.learning_rate = learning_rate
         self.previous_layer = None
 
-    def _set_previous_layer(self, layer):
+    def set_previous_layer(self, layer):
         self.previous_layer = layer
 
     def _set_weights(self, W):
@@ -49,6 +49,35 @@ class Layer:
     def compute_output(self, X):
         return self.apply_activation_function(X)
 
+    def cache_X_sum_output(self, X, sum, output):
+        self.X = X
+        self.sum = sum
+        self.output = output
+
+    def reset_X_sum_output(self):
+        self.X = None
+        self.sum = None
+        self.output = None
+
+    def compute_jacobian_Z_sum(self):
+        activation_derivative = self.apply_activation_function_derivative(self.sum)
+        jacobian_Z_sum = np.diag(activation_derivative)
+        print(jacobian_Z_sum)
+        return jacobian_Z_sum
+
+    def compute_jacobian_Z_W_hat(self, jacobian_Z_sum):
+        # Computes a simplified version of jacobian_Z_W where entries are scalars instead of vectors
+        # TODO maybe change name of self.X to self.Y (lecture uses Y)
+        jacobian_Z_W_hat = np.outer(self.X, jacobian_Z_sum)
+        print(jacobian_Z_W_hat)
+        return jacobian_Z_W_hat
+
+    def compute_jacobian_L_W(self, jacobian_L_Z, jacobian_Z_W_hat):
+        # TODO double check if this transpose is correct
+        jacobian_L_W = np.dot(jacobian_L_Z, jacobian_Z_W_hat.T)
+        print(jacobian_L_W)
+        return jacobian_L_W
+
     def apply_activation_function(self, X):
         if self.activation_function == "identity":
             return identity(X)
@@ -62,16 +91,26 @@ class Layer:
             raise ValueError(f"Received unsupported activation function: {self.activation_function}")
 
     def apply_activation_function_derivative(self, X):
-        pass
+        if self.activation_function == "identity":
+            return identity_derivative(X)
+        elif self.activation_function == "relu":
+            return relu_derivative(X)
+        elif self.activation_function == "sigmoid":
+            return sigmoid_derivative(X)
+        elif self.activation_function == "softmax":
+            pass
+        else:
+            raise ValueError(f"Received unsupported activation function: {self.activation_function}")
 
     def forward_pass(self, X):
         # Assuming X is in column vector shape
         if self.layer_type == "input":
             # TODO add check that input layer supports input vectors
             return X
-        sum = self.compute_sum(X)
-        output = self.compute_output(sum)
-        return output
+        self.X = X # Save for backpropagation later
+        self.sum = self.compute_sum(X)
+        self.output = self.compute_output(self.sum)
+        return self.output
 
     def backward_pass(self):
         pass
