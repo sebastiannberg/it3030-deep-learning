@@ -1,5 +1,3 @@
-import numpy as np
-
 from utils.config_parser import ConfigParser
 from utils.data_generator import DataGenerator
 from utils.visualizer import Visualizer
@@ -19,8 +17,7 @@ train, validation, test = data_generator.generate_dataset(count=1000,
                                                           wr=[0.3, 0.5],
                                                           hr=[0.2, 0.6],
                                                           noise=0,
-                                                          types=(
-                                                              "ring", "frame", "flower", "triangle"),
+                                                          types=("ring", "frame", "flower", "triangle"),
                                                           center=True,
                                                           flatten=True)
 
@@ -30,10 +27,9 @@ visualizer = Visualizer()
 
 # Train network
 train_loss, validation_loss = network.fit(
-    train[0], train[1], validation[0], validation[1])
+    train[0], train[1], validation[0], validation[1], num_minibatches=100)
 
 # Test network using network.predict(test[0], test[1])
 
 # Plot learning progression
-visualizer.plot_learning_progression(
-    train_loss=train_loss, validation_loss=validation_loss)
+visualizer.plot_learning_progression(train_loss=train_loss, validation_loss=validation_loss)

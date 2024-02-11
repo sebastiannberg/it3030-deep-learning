@@ -2,12 +2,15 @@ import numpy as np
 
 from activation_functions.identity import identity, identity_derivative
 from activation_functions.relu import relu, relu_derivative
+from activation_functions.sigmoid import sigmoid, sigmoid_derivative
+# TODO import softmax derivative?
 from activation_functions.softmax import softmax
 
 
 class Layer:
 
     def __init__(self, layer_type, neurons, activation_function=None, weight_range=None, bias_range=None, learning_rate=None):
+        # TODO ensure usage of private learning rate and such
         self.layer_type = layer_type
         self.neurons = neurons
         self.activation_function = activation_function
@@ -16,10 +19,17 @@ class Layer:
         self.learning_rate = learning_rate
         self.previous_layer = None
 
-    def set_previous_layer(self, layer):
+    def _set_previous_layer(self, layer):
         self.previous_layer = layer
 
+    def _set_weights(self, W):
+        self.weights = W
+
+    def _set_bias(self, bias):
+        self.bias = bias
+
     def init_parameters(self):
+        # Initializing weight matrix w_ij meaning weight from neuron i to neuron j
         if self.layer_type == "input":
             return
         else:
@@ -28,30 +38,40 @@ class Layer:
             else:
                 self.weights = np.random.uniform(low=self.weight_range[0],
                                                  high=self.weight_range[1],
-                                                 size=(self.neurons, self.previous_layer.neurons))
+                                                 size=(self.previous_layer.neurons, self.neurons))
                 self.bias = np.random.uniform(low=self.bias_range[0],
                                               high=self.bias_range[1],
-                                              size=(self.neurons, 1))
+                                              size=(1, self.neurons))
 
-    def apply_activation_function(self, x):
+    def compute_sum(self, X):
+        return np.dot(self.weights.T, X) + self.bias.T
+
+    def compute_output(self, X):
+        return self.apply_activation_function(X)
+
+    def apply_activation_function(self, X):
         if self.activation_function == "identity":
-            return identity(x)
+            return identity(X)
         elif self.activation_function == "relu":
-            return relu(x)
+            return relu(X)
+        elif self.activation_function == "sigmoid":
+            return sigmoid(X)
         elif self.activation_function == "softmax":
-            return softmax(x)
+            return softmax(X)
+        else:
+            raise ValueError(f"Received unsupported activation function: {self.activation_function}")
 
-    def apply_activation_function_derivative(self, x):
+    def apply_activation_function_derivative(self, X):
         pass
 
-    def forward_pass(self, input_tensor):
-        if self.layer_type == "input" and input_tensor.shape[0] == self.neurons:
-            return input_tensor
-        elif self.layer_type == "input" and not input_tensor.shape[0] == self.neurons:
-            raise ValueError(
-                f"Size of input {input_tensor.shape} does not match input layer size: {(self.neurons, 1)}")
-        print(self.weights.shape, input_tensor.shape)
-        z = np.dot(self.weights, input_tensor)
-        z += self.bias
-        output = self.apply_activation_function(z)
+    def forward_pass(self, X):
+        # Assuming X is in column vector shape
+        if self.layer_type == "input":
+            # TODO add check that input layer supports input vectors
+            return X
+        sum = self.compute_sum(X)
+        output = self.compute_output(sum)
         return output
+
+    def backward_pass(self):
+        pass

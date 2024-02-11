@@ -5,13 +5,11 @@ class DataGenerator:
 
     def generate_dataset(self, count, train_size, validation_size, test_size, n, wr, hr, noise, types, center: bool, flatten: bool):
         if n < 10 or n > 50:
-            raise ValueError(
-                "Invalid n size in data generator. Should be 10<=n<=50")
+            raise ValueError("Invalid n size in data generator. Should be 10<=n<=50")
         if noise < 0 or noise > 1:
             raise ValueError("Noise should be a fraction")
         if int(round(train_size + validation_size + test_size, 2)) != 1:
-            raise ValueError(
-                "Sum of train_size, validation_size and test_size must be 1")
+            raise ValueError("Sum of train_size, validation_size and test_size must be 1")
 
         train_size = int(train_size * count)
         validation_size = int(validation_size * count)

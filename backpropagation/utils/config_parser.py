@@ -31,14 +31,12 @@ class ConfigParser:
                           weight_reg_type=globals_config["weight_reg_type"],
                           verbose=globals_config["verbose"])
 
-        input_layer_config = [
-            layer for layer in self.config["LAYERS"] if layer["layer_type"] == "input"][0]
+        input_layer_config = [layer for layer in self.config["LAYERS"] if layer["layer_type"] == "input"][0]
         input_layer = Layer(layer_type=input_layer_config["layer_type"],
                             neurons=input_layer_config["neurons"])
         network.add_layer(input_layer)
 
-        hidden_layers_configs = [
-            layer for layer in self.config["LAYERS"] if layer["layer_type"] == "hidden"]
+        hidden_layers_configs = [layer for layer in self.config["LAYERS"] if layer["layer_type"] == "hidden"]
         for layer_config in hidden_layers_configs:
             hidden_layer = Layer(layer_type=layer_config["layer_type"],
                                  neurons=layer_config["neurons"],
@@ -98,8 +96,7 @@ class ConfigParser:
             raise ValueError(
                 f"In config GLOBALS: weight_reg_type must be None, L1 or L2")
 
-        unexpected_keys = [
-            key for key in globals_config if key not in required + optional]
+        unexpected_keys = [key for key in globals_config if key not in required + optional]
         if unexpected_keys:
             raise ValueError(
                 f"Unexpected key(s) in config GLOBALS: {', '.join(unexpected_keys)}")
