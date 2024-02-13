@@ -26,11 +26,14 @@ class Network:
         else:
             raise ValueError("Layer must be instance of Layer class")
 
+    # TODO check if this is used
     def get_layers(self):
         return self.layers
 
     def fit(self, train_features, train_targets, validation_features, validation_targets, minibatch_size=64, num_minibatches=5000):
+        # TODO write assumptions about column vector or row vector input
         # Calculate how many iterations is needed
+        # TODO ensure that all minibatches is of size 64 and not for example one is 60
         num_iterations = num_minibatches // (len(train_features) // minibatch_size)
         for _ in range(num_iterations):
             # Fetch a minibatch of training cases
@@ -57,6 +60,8 @@ class Network:
             yield features[selected_indices], targets[selected_indices]
 
     def forward_pass(self, features):
+        # TODO add comments about assumed shape of features
+        # TODO to transpose or not to transpose
         # Reshape features to column vectors
         input_tensor = features.T
         # Perform forward pass through each layer
@@ -76,9 +81,20 @@ class Network:
             raise ValueError(f"Received unsupported loss function: {self.loss_function}")
 
     def compute_jacobian_L_Z(self, predicted_outputs, targets):
+        """
+        Want jacobian to be shape (output_nodes, cases, 1, cases)
+        """
         if self.loss_function == "cross_entropy":
             pass
         elif self.loss_function == "mse":
-            return mse_derivative(predicted_outputs, targets)
+            derivatives = mse_derivative(predicted_outputs, targets)
         else:
             raise ValueError(f"Received unsupported loss function: {self.loss_function}")
+        jacobian = np.zeros((self.layers[-1].neurons, targets.shape[1], 1, targets.shape[1]))
+        for i in range(jacobian.shape[0]):
+            for j in range(jacobian.shape[1]):
+                for k in range(jacobian.shape[2]):
+                    for l in range(jacobian.shape[3]):
+                        if j == l:
+                            jacobian[i, j, k, l] = derivatives[i, j]
+        return jacobian

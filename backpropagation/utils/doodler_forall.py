@@ -1,5 +1,5 @@
-
-#  A class for creating 2-dimensional binary images of simple shapes and figures, with the key feature that
+# PROVIDED BY NTNU
+# A class for creating 2-dimensional binary images of simple shapes and figures, with the key feature that
 # the sizes and locations of these images can vary (and be determined stochastically).  This allows the
 # doodler to produce large data sets for Machine Learning.  The key interface function is 'gen_standard_cases', which
 # students should be able to use without digging into many of the details of this file.  However, it is wise to
@@ -631,8 +631,7 @@ def quickplot_matrix(X, colormap=CMAP.jet, fs=False, ax=None, trans=False,
 
 # Points is a list of 2-d locations
 def quickplot_path(points,color='blue'):
-    axes = gen_new_axes() 
+    axes = gen_new_axes()
     a = np.array(points).transpose()
     axes.plot(a[0], a[1],color=color)
     PLT.draw()
-
