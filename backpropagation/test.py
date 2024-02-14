@@ -44,11 +44,11 @@ hidden_layer._set_weights(V)
 output_layer._set_weights(W)
 # Set bias to 0
 hidden_layer._set_bias(np.array([[0, 0]]))
-output_layer._set_bias(np.array([[0]]))
+output_layer._set_bias(np.array([[0, 0]]))
 assert np.array_equal(hidden_layer.weights, np.array([[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]))
 assert np.array_equal(hidden_layer.bias, [[0, 0]])
 assert np.array_equal(output_layer.weights, np.array([[0.7, 0.8], [0.9, 1.0]]))
-assert np.array_equal(output_layer.bias, [[0]])
+assert np.array_equal(output_layer.bias, [[0, 0]])
 # Forward pass
 X = np.array([[0.2, 0.3], [0.8, 0.9], [1.4, 1.5]])
 expected_hidden_layer_sum = np.array([[0.96, 1.05], [1.2, 1.32]])
@@ -125,12 +125,32 @@ expected_jacobian_Z_W = np.array([
 ])
 jacobian_Z_W = output_layer.compute_jacobian_Z_W(jacobian_Z_sum)
 assert np.allclose(jacobian_Z_W, expected_jacobian_Z_W), f"\nJacobian_Z_W is\n{jacobian_Z_W}\nbut expected\n{expected_jacobian_Z_W}"
+expected_jacobian_Z_B = np.array([
+    [
+        [[0.1780990966, 0.1751378295],
+         [0, 0]],
+        [[0, 0],
+         [0.1637741571, 0.1604313658]]
+    ]
+])
+jacobian_Z_B = output_layer.compute_jacobian_Z_B(jacobian_Z_sum)
+assert np.allclose(jacobian_Z_B, expected_jacobian_Z_B), f"\nJacobian_Z_B is\n{jacobian_Z_B}\nbut expected\n{expected_jacobian_Z_B}"
 expected_jacobian_L_W = np.array([
     [[[-0.0169814559, -0.06829236357]], [[-0.04812439097, -0.08327601452]]],
     [[[-0.01804767832, -0.0727553606]], [[-0.05114599904, -0.08871778365]]]
 ])
 jacobian_L_W = output_layer.compute_jacobian_L_W(jacobian_L_Z, jacobian_Z_W)
 assert np.allclose(jacobian_L_W, expected_jacobian_L_W), f"\nJacobian_L_W is\n{jacobian_L_W}\nbut expected\n{expected_jacobian_L_W}"
-
+expected_jacobian_L_B = np.array([
+    [[[-0.02348353456, -0.09219088582]], [[-0.06655087791, -0.1124174356]]]
+])
+jacobian_L_B = output_layer.compute_jacobian_L_B(jacobian_L_Z, jacobian_Z_B)
+assert np.allclose(jacobian_L_B, expected_jacobian_L_B), f"\nJacobian_L_B is\n{jacobian_L_B}\nbut expected\n{expected_jacobian_L_B}"
+expected_jacobian_L_Y = np.array([
+    [[[-0.06967917652, 0]], [[0, -0.1544675686]]],
+    [[[-0.08768605901, 0]], [[0, -0.1953892329]]]
+])
+jacobian_L_Y = output_layer.compute_jacobian_L_Y(jacobian_L_Z, jacobian_Z_Y)
+assert np.allclose(jacobian_L_Y, expected_jacobian_L_Y), f"\nJacobian_L_Y is\n{jacobian_L_Y}\nbut expected\n{expected_jacobian_L_Y}"
 
 # TODO TEST Network class? already testing network.compute_jacobian_L_Z and network.compute_loss

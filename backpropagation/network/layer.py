@@ -58,7 +58,7 @@ class Layer:
                                               size=(1, self.neurons))
 
     def compute_sum(self, X):
-        # Assuming X is column vector
+        # Assuming X is column vector shape (features, cases)
         return np.dot(self.weights.T, X) + self.bias.T
 
     def compute_output(self, X):
@@ -89,13 +89,26 @@ class Layer:
         transposed = np.transpose(jacobian_Z_W, axes=(0, 2, 3, 1))
         return transposed
 
+    def compute_jacobian_Z_B(self, jacobian_Z_sum):
+        """
+        Shape of jacobian will be (i, j, k, l)
+        where (i, j) is shape of bias and (k, l) is shape of Z
+        """
+        jacobian_Z_B = np.sum(jacobian_Z_sum, axis=1)[np.newaxis, :, :, :]
+        return jacobian_Z_B
+
     def compute_jacobian_L_W(self, jacobian_L_Z, jacobian_Z_W):
         # TODO comment on numerator or denominator layout for all jacobians, note to self: all jacobians in denominator
         jacobian_L_W = np.tensordot(jacobian_Z_W, jacobian_L_Z)
         return jacobian_L_W
 
-    def compute_jacobian_L_Y(self):
-        pass
+    def compute_jacobian_L_B(self, jacobian_L_Z, jacobian_Z_B):
+        jacobian_L_B = np.tensordot(jacobian_Z_B, jacobian_L_Z)
+        return jacobian_L_B
+
+    def compute_jacobian_L_Y(self, jacobian_L_Z, jacobian_Z_Y):
+        jacobian_L_Y = np.tensordot(jacobian_Z_Y, jacobian_L_Z)
+        return jacobian_L_Y
 
     def apply_activation_function(self, X):
         if self.activation_function == "identity":
