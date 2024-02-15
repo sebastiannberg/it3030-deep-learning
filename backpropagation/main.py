@@ -28,7 +28,7 @@ train_X = np.sum(train[0], axis=-1)
 train_y = train[1]
 validation_X = np.sum(validation[0], axis=-1)
 validation_y = validation[1]
-test_X = np.sum(validation[0], axis=-1)
+test_X = np.sum(test[0], axis=-1)
 test_y = test[1]
 
 # View images
@@ -39,6 +39,8 @@ visualizer = Visualizer()
 train_loss, validation_loss = network.fit(train_X, train_y, validation_X, validation_y, minibatch_size=4, num_minibatches=100)
 
 # Test network using network.predict()
+test_loss = network.predict(test_X, test_y)
+print("\nTEST LOSS: ", test_loss)
 
 # Plot learning progression
 visualizer.plot_learning_progression(train_loss=train_loss, validation_loss=validation_loss)

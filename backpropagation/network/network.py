@@ -26,10 +26,6 @@ class Network:
         else:
             raise ValueError("Layer must be instance of Layer class")
 
-    # TODO check if this is used
-    def get_layers(self):
-        return self.layers
-
     def fit(self, train_X, train_y, validation_X, validation_y, minibatch_size=4, num_minibatches=100):
         """
         Assuming X is in row vector shape (cases, features)
@@ -60,8 +56,10 @@ class Network:
 
         return train_loss, validation_loss
 
-    def predict(self):
-        pass
+    def predict(self, X, y):
+        Z = self.forward_pass(X.T)
+        loss = self.compute_loss(Z, y.T)
+        return(np.sum(loss))
 
     def fetch_minibatch(self, X, y, minibatch_size):
         assert len(X) == len(y)

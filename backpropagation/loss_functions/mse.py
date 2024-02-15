@@ -7,5 +7,4 @@ def mse(X, y):
 
 def mse_derivative(X, y):
     n = y.shape[0] # Number of output neurons
-    # TODO ensure correct output shape when returning
     return (2 / n) * (X - y)
