@@ -57,14 +57,14 @@ assert np.array_equal(hidden_layer_sum, expected_hidden_layer_sum), f"Hidden lay
 expected_hidden_layer_output = np.array([[0.7231218051, 0.7407748992], [0.7685247835, 0.7891817065]])
 hidden_layer_output = hidden_layer.compute_output(hidden_layer_sum)
 assert np.allclose(hidden_layer_output, expected_hidden_layer_output), f"Hidden layer output is {hidden_layer_output} but expected {expected_hidden_layer_output}"
-hidden_layer._cache_X_sum_output(X, hidden_layer_sum, hidden_layer_output)
+hidden_layer._cache_Y_sum_output(X, hidden_layer_sum, hidden_layer_output)
 expected_output_layer_sum = np.array([[1.197857571, 1.228805965], [1.347022228, 1.381801626]])
 output_layer_sum = output_layer.compute_sum(hidden_layer_output)
 assert np.allclose(output_layer_sum, expected_output_layer_sum), f"Output layer sum is {output_layer_sum} but expected {expected_output_layer_sum}"
 expected_output_layer_output = np.array([[0.7681434381, 0.7736095219], [0.7936423725, 0.7992801934]])
 output_layer_output = output_layer.compute_output(output_layer_sum)
 assert np.allclose(output_layer_output, expected_output_layer_output), f"Output layer output is {output_layer_output} but expected {expected_output_layer_output}"
-output_layer._cache_X_sum_output(hidden_layer_output, output_layer_sum, output_layer_output)
+output_layer._cache_Y_sum_output(hidden_layer_output, output_layer_sum, output_layer_output)
 # Backward pass
 # TODO double check every jacobian shape, is  i numerator or denominator layout
 targets = np.array([[0.9, 1.3], [1.2, 1.5]])
@@ -152,5 +152,7 @@ expected_jacobian_L_Y = np.array([
 ])
 jacobian_L_Y = output_layer.compute_jacobian_L_Y(jacobian_L_Z, jacobian_Z_Y)
 assert np.allclose(jacobian_L_Y, expected_jacobian_L_Y), f"\nJacobian_L_Y is\n{jacobian_L_Y}\nbut expected\n{expected_jacobian_L_Y}"
+output_layer.backward_pass(jacobian_L_Z)
+
 
 # TODO TEST Network class? already testing network.compute_jacobian_L_Z and network.compute_loss

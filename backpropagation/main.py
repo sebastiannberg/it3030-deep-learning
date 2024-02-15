@@ -22,12 +22,12 @@ train, validation, test = data_generator.generate_dataset(count=1000,
                                                           flatten=True)
 
 # View images
+# TODO static visualizer to be used inside network and layer
 visualizer = Visualizer()
 # visualizer.view_images(train, num_images=5)
 
 # Train network
-train_loss, validation_loss = network.fit(
-    train[0], train[1], validation[0], validation[1], num_minibatches=100)
+train_loss, validation_loss = network.fit(train[0], train[1], validation[0], validation[1], num_minibatches=100)
 
 # Test network using network.predict(test[0], test[1])
 

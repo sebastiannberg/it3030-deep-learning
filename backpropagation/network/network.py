@@ -1,7 +1,7 @@
 import numpy as np
 
 from network.layer import Layer
-from loss_functions.cross_entropy import cross_entropy
+from loss_functions.cross_entropy import cross_entropy, cross_entropy_derivative
 from loss_functions.mse import mse, mse_derivative
 
 
@@ -30,67 +30,93 @@ class Network:
     def get_layers(self):
         return self.layers
 
-    def fit(self, train_features, train_targets, validation_features, validation_targets, minibatch_size=64, num_minibatches=5000):
-        # TODO write assumptions about column vector or row vector input
-        # Calculate how many iterations is needed
-        # TODO ensure that all minibatches is of size 64 and not for example one is 60
-        num_iterations = num_minibatches // (len(train_features) // minibatch_size)
-        for _ in range(num_iterations):
+    def fit(self, train_X, train_y, validation_X, validation_y, minibatch_size=4, num_minibatches=100):
+        """
+        Assuming X is in row vector shape (cases, features)
+        Assuming y is in row vector shape (cases, targets)
+        Both X and y is transposed to support the network conventions
+        """
+        minibatch_count = 0
+        while minibatch_count < num_minibatches:
             # Fetch a minibatch of training cases
-            for minibatch_features, minibatch_targets in self.fetch_minibatch(train_features, train_targets, minibatch_size):
-                # Send each case through the network
-                outputs = self.forward_pass(features=minibatch_features)
-                print(outputs)
-                # Compute the loss
-                loss = self.compute_loss(predicted_outputs=outputs, targets=minibatch_targets)
-                print(loss)
-                # Backward pass
+            for minibatch_X, minibatch_y in self.fetch_minibatch(train_X, train_y, minibatch_size):
+                Z = self.forward_pass(minibatch_X.T)
+                loss = self.compute_loss(Z, minibatch_y.T)
+                weight_gradients, bias_gradients = self.backward_pass(Z, minibatch_y.T)
+                self.update_parameters(weight_gradients, bias_gradients)
 
-    def fetch_minibatch(self, features, targets, minibatch_size):
-        assert len(features) == len(targets)
+                minibatch_count += 1
+                if minibatch_count >= num_minibatches:
+                    break
+
+    def predict(self):
+        pass
+
+    def fetch_minibatch(self, X, y, minibatch_size):
+        assert len(X) == len(y)
         # Create index array
-        indices = np.arange(len(features))
+        indices = np.arange(len(X))
         # Shuffle the indexes to select random later
         np.random.shuffle(indices)
-        for start_index in range(0, len(features), minibatch_size):
-            end_index = min(start_index + minibatch_size, len(features))
+        for start_index in range(0, len(X), minibatch_size):
+            end_index = min(start_index + minibatch_size, len(X))
             # Select shuffled indices in minibatch sizes
             selected_indices = indices[start_index:end_index]
             # Yield a randomly selected minibatch
-            yield features[selected_indices], targets[selected_indices]
+            yield X[selected_indices], y[selected_indices]
 
-    def forward_pass(self, features):
-        # TODO add comments about assumed shape of features
-        # TODO to transpose or not to transpose
-        # Reshape features to column vectors
-        input_tensor = features.T
+    def forward_pass(self, X):
+        """
+        Assuming X is in column vector shape (features, cases)
+        Returning output Z in column vector shape (features, cases)
+        """
+        input_tensor = X
         # Perform forward pass through each layer
         for layer in self.layers:
             output_tensor = layer.forward_pass(input_tensor)
             # Update input to be previous layer output
             input_tensor = output_tensor
-        # Return final output transposed back to row wectors
-        return output_tensor.T
+        return output_tensor
 
-    def compute_loss(self, predicted_outputs, targets):
+    def backward_pass(self, Z, y):
+        """
+        Assuming Z and y is in column vector shapes (features, cases) and (targets, cases)
+        """
+        jacobian_L_Z = self.compute_jacobian_L_Z(Z, y)
+        weight_gradient_stack = []
+        bias_gradient_stack = []
+
+        for layer in reversed(self.layers[1:]):
+            jacobian_L_W, jacobian_L_B, jacobian_L_Z = layer.backward_pass(jacobian_L_Z)
+            weight_gradient = np.squeeze(np.sum(jacobian_L_W, axis=-1))
+            bias_gradient = np.squeeze(np.sum(jacobian_L_B, axis=-1)).reshape(1,-1)
+            print(weight_gradient)
+            print(bias_gradient)
+            weight_gradient_stack.insert(0, weight_gradient)
+            bias_gradient_stack.insert(0, bias_gradient)
+
+        return weight_gradient_stack, bias_gradient_stack
+
+    def compute_loss(self, X, y):
         if self.loss_function == "cross_entropy":
-            return cross_entropy(predicted_outputs, targets)
+            return cross_entropy(X, y)
         elif self.loss_function == "mse":
-            return mse(predicted_outputs, targets)
+            return mse(X, y)
         else:
             raise ValueError(f"Received unsupported loss function: {self.loss_function}")
 
-    def compute_jacobian_L_Z(self, predicted_outputs, targets):
+    def compute_jacobian_L_Z(self, Z, y):
         """
-        Want jacobian to be shape (output_nodes, cases, 1, cases)
+        Assuming Z and y is in column vector shapes (features, cases) and (targets, cases)
+        Computes jacobian with shape (output_nodes, cases, 1, cases) and denominator layout
         """
         if self.loss_function == "cross_entropy":
-            pass
+            derivatives = cross_entropy_derivative(Z, y)
         elif self.loss_function == "mse":
-            derivatives = mse_derivative(predicted_outputs, targets)
+            derivatives = mse_derivative(Z, y)
         else:
             raise ValueError(f"Received unsupported loss function: {self.loss_function}")
-        jacobian = np.zeros((self.layers[-1].neurons, targets.shape[1], 1, targets.shape[1]))
+        jacobian = np.zeros((self.layers[-1].neurons, Z.shape[1], 1, y.shape[1]))
         for i in range(jacobian.shape[0]):
             for j in range(jacobian.shape[1]):
                 for k in range(jacobian.shape[2]):
@@ -98,3 +124,7 @@ class Network:
                         if j == l:
                             jacobian[i, j, k, l] = derivatives[i, j]
         return jacobian
+
+    def update_parameters(self, weight_gradients, bias_gradients):
+        for i in range(1, len(self.layers)):
+            self.layers[i].update_parameters(weight_gradients[i-1], bias_gradients[i-1], self.learning_rate)

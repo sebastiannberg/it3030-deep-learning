@@ -1,6 +1,6 @@
 {
     "GLOBALS": {
-        "loss_function": "cross_entropy",
+        "loss_function": "mse",
         "learning_rate": 0.1,
         "weight_reg_rate": null,
         "weight_reg_type": null,
@@ -30,7 +30,7 @@
         {
             "layer_type": "output",
             "neurons": 4,
-            "activation_function": "softmax",
+            "activation_function": "sigmoid",
             "weight_range": [-0.1, 0.1],
             "bias_range": [0, 1],
             "learning_rate": null

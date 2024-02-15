@@ -163,7 +163,7 @@ class ConfigParser:
                 raise ValueError(
                     f"Required key(s) with None value in hidden layer: {required_keys_with_none_values}")
 
-            if layer["activation_function"] not in ("relu", "identity"):
+            if layer["activation_function"] not in ("relu", "identity", "sigmoid"):
                 raise ValueError(
                     f"Invalid activation function for hidden layer: {layer['activation_function']}")
 
@@ -196,6 +196,6 @@ class ConfigParser:
 
         # TODO
 
-        if output_layer[0]["activation_function"] not in ("softmax", "identity"):
+        if output_layer[0]["activation_function"] not in ("softmax", "identity", "relu", "sigmoid"):
             raise ValueError(
                 f"Invalid activation function in output layer: {output_layer[0]['activation_function']}")

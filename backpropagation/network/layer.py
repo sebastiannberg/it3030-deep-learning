@@ -31,23 +31,20 @@ class Layer:
         self.bias = bias
 
     # Used for testing
-    def _cache_X_sum_output(self, X, sum, output):
-        self.X = X
+    def _cache_Y_sum_output(self, Y, sum, output):
+        self.Y = Y
         self.sum = sum
         self.output = output
 
-    # TODO may not need this function
-    def reset_X_sum_output(self):
-        self.X = None
-        self.sum = None
-        self.output = None
-
     def init_parameters(self):
-        # Initializing weight matrix w_ij meaning weight from neuron i to neuron j
+        """
+        Initializing weight matrix w_ij meaning weight from neuron i to neuron j
+        """
         if self.layer_type == "input":
             return
         else:
             if self.weight_range == "glorot":
+                # TODO
                 print("TODO implement glorot")
             else:
                 self.weights = np.random.uniform(low=self.weight_range[0],
@@ -58,7 +55,9 @@ class Layer:
                                               size=(1, self.neurons))
 
     def compute_sum(self, X):
-        # Assuming X is column vector shape (features, cases)
+        """
+        Assuming X is in column vector shape (features, cases)
+        """
         return np.dot(self.weights.T, X) + self.bias.T
 
     def compute_output(self, X):
@@ -84,8 +83,7 @@ class Layer:
         return jacobian_Z_Y
 
     def compute_jacobian_Z_W(self, jacobian_Z_sum):
-        # TODO maybe change name of self.X to self.Y (lecture uses Y)
-        jacobian_Z_W = np.dot(self.X, jacobian_Z_sum.T)
+        jacobian_Z_W = np.dot(self.Y, jacobian_Z_sum.T)
         transposed = np.transpose(jacobian_Z_W, axes=(0, 2, 3, 1))
         return transposed
 
@@ -98,7 +96,6 @@ class Layer:
         return jacobian_Z_B
 
     def compute_jacobian_L_W(self, jacobian_L_Z, jacobian_Z_W):
-        # TODO comment on numerator or denominator layout for all jacobians, note to self: all jacobians in denominator
         jacobian_L_W = np.tensordot(jacobian_Z_W, jacobian_L_Z)
         return jacobian_L_W
 
@@ -136,14 +133,35 @@ class Layer:
             raise ValueError(f"Received unsupported activation function: {self.activation_function}")
 
     def forward_pass(self, X):
-        # Assuming X is in column vector shape
+        """
+        Assuming X is in column vector shape (features, cases)
+        """
         if self.layer_type == "input":
-            # TODO add check that input layer supports input vectors
+            # TODO add check that input layer corresponds in shape to input vectors
             return X
-        self.X = X # Save for backpropagation later
+        # Cache values for backpropagation
+        self.Y = X
         self.sum = self.compute_sum(X)
         self.output = self.compute_output(self.sum)
         return self.output
 
-    def backward_pass(self):
-        pass
+    def backward_pass(self, jacobian_L_Z):
+        """
+        Computing all needed jacobians in denominator layout
+        """
+        jacobian_Z_sum = self.compute_jacobian_Z_sum()
+        jacobian_Z_Y = self.compute_jacobian_Z_Y(jacobian_Z_sum)
+        jacobian_Z_W = self.compute_jacobian_Z_W(jacobian_Z_sum)
+        jacobian_Z_B = self.compute_jacobian_Z_B(jacobian_Z_sum)
+        jacobian_L_W = self.compute_jacobian_L_W(jacobian_L_Z, jacobian_Z_W)
+        jacobian_L_B = self.compute_jacobian_L_B(jacobian_L_Z, jacobian_Z_B)
+        jacobian_L_Y = self.compute_jacobian_L_Y(jacobian_L_Z, jacobian_Z_Y)
+        return jacobian_L_W, jacobian_L_B, jacobian_L_Y
+
+    def update_parameters(self, weight_gradient, bias_gradient, learning_rate):
+        if self.learning_rate:
+            self.weights = self.weights - self.learning_rate * weight_gradient
+            self.bias = self.bias - self.learning_rate * bias_gradient
+        else:
+            self.weights = self.weights - learning_rate * weight_gradient
+            self.bias = self.bias - learning_rate * bias_gradient
