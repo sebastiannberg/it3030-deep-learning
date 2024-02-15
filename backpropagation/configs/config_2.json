@@ -1,0 +1,35 @@
+{
+    "GLOBALS": {
+        "loss_function": "cross_entropy",
+        "learning_rate": 0.00001,
+        "weight_reg_rate": null,
+        "weight_reg_type": null,
+        "verbose": true
+    },
+    "LAYERS": [
+        {
+            "layer_type": "input",
+            "neurons": 50
+        },
+        {
+            "layer_type": "hidden",
+            "neurons": 100,
+            "activation_function": "relu",
+            "weight_range": [-0.1, 0.1],
+            "bias_range": [0, 1],
+            "learning_rate": null
+        },
+        {
+            "layer_type": "hidden",
+            "neurons": 4,
+            "activation_function": "relu",
+            "weight_range": [-0.1, 0.1],
+            "bias_range": [0, 1],
+            "learning_rate": null
+        },
+        {
+            "layer_type": "softmax",
+            "neurons": 4
+        }
+    ]
+}

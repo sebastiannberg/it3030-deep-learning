@@ -7,6 +7,7 @@ from utils.visualizer import Visualizer
 
 # Parse config file
 config_parser = ConfigParser()
+# TODO also return data_generator_args
 network = config_parser.parse_config_file("config_1.json")
 
 # Generate data
@@ -33,14 +34,14 @@ test_y = test[1]
 
 # View images
 visualizer = Visualizer()
-# visualizer.view_images(train, num_images=5)
+visualizer.view_images(train, num_images=5)
 
 # Train network
-train_loss, validation_loss = network.fit(train_X, train_y, validation_X, validation_y, minibatch_size=4, num_minibatches=100)
+train_loss, validation_loss = network.fit(train_X, train_y, validation_X, validation_y, minibatch_size=4, num_minibatches=1000)
 
 # Test network using network.predict()
 test_loss = network.predict(test_X, test_y)
-print("\nTEST LOSS: ", test_loss)
+print("\nTEST LOSS:", test_loss)
 
 # Plot learning progression
 visualizer.plot_learning_progression(train_loss=train_loss, validation_loss=validation_loss)

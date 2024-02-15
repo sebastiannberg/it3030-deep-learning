@@ -3,14 +3,12 @@ import numpy as np
 from activation_functions.identity import identity, identity_derivative
 from activation_functions.relu import relu, relu_derivative
 from activation_functions.sigmoid import sigmoid, sigmoid_derivative
-# TODO import softmax derivative?
-from activation_functions.softmax import softmax
+from utils.softmax import softmax
 
 
 class Layer:
 
     def __init__(self, layer_type, neurons, activation_function=None, weight_range=None, bias_range=None, learning_rate=None):
-        # TODO ensure usage of private learning rate and such
         self.layer_type = layer_type
         self.neurons = neurons
         self.activation_function = activation_function
@@ -40,7 +38,7 @@ class Layer:
         """
         Initializing weight matrix w_ij meaning weight from neuron i to neuron j
         """
-        if self.layer_type == "input":
+        if self.layer_type == "input" or self.layer_type == "softmax":
             return
         else:
             if self.weight_range == "glorot":
@@ -107,6 +105,21 @@ class Layer:
         jacobian_L_Y = np.tensordot(jacobian_Z_Y, jacobian_L_Z)
         return jacobian_L_Y
 
+    def compute_jacobian_S_Y(self):
+        """
+        Computes jacobian for softmax layer
+        """
+        jacobian = np.zeros(shape=(self.Y.shape[0], self.Y.shape[1], self.output.shape[0], self.output.shape[1]))
+        for i in range(jacobian.shape[0]):
+            for j in range(jacobian.shape[1]):
+                for k in range(jacobian.shape[2]):
+                    for l in range(jacobian.shape[3]):
+                        if i == k and j == l:
+                            jacobian[i,j,k,l] = self.output[i,j] * (1 - self.output[i,j])
+                        else:
+                            jacobian[i,j,k,l] = - self.output[i,j] * self.output[k,l]
+        return jacobian
+
     def apply_activation_function(self, X):
         if self.activation_function == "identity":
             return identity(X)
@@ -114,8 +127,6 @@ class Layer:
             return relu(X)
         elif self.activation_function == "sigmoid":
             return sigmoid(X)
-        elif self.activation_function == "softmax":
-            return softmax(X)
         else:
             raise ValueError(f"Received unsupported activation function: {self.activation_function}")
 
@@ -126,9 +137,6 @@ class Layer:
             return relu_derivative(X)
         elif self.activation_function == "sigmoid":
             return sigmoid_derivative(X)
-        elif self.activation_function == "softmax":
-            # TODO
-            pass
         else:
             raise ValueError(f"Received unsupported activation function: {self.activation_function}")
 
@@ -139,26 +147,38 @@ class Layer:
         if self.layer_type == "input":
             # TODO add check that input layer corresponds in shape to input vectors
             return X
-        # Cache values for backpropagation
-        self.Y = X
-        self.sum = self.compute_sum(X)
-        self.output = self.compute_output(self.sum)
-        return self.output
+        elif self.layer_type == "softmax":
+            self.Y = X
+            self.output = softmax(X)
+            return self.output
+        else:
+            self.Y = X
+            self.sum = self.compute_sum(X)
+            self.output = self.compute_output(self.sum)
+            return self.output
 
     def backward_pass(self, jacobian_L_Z):
         """
         Computing all needed jacobians in denominator layout
         """
-        jacobian_Z_sum = self.compute_jacobian_Z_sum()
-        jacobian_Z_Y = self.compute_jacobian_Z_Y(jacobian_Z_sum)
-        jacobian_Z_W = self.compute_jacobian_Z_W(jacobian_Z_sum)
-        jacobian_Z_B = self.compute_jacobian_Z_B(jacobian_Z_sum)
-        jacobian_L_W = self.compute_jacobian_L_W(jacobian_L_Z, jacobian_Z_W)
-        jacobian_L_B = self.compute_jacobian_L_B(jacobian_L_Z, jacobian_Z_B)
-        jacobian_L_Y = self.compute_jacobian_L_Y(jacobian_L_Z, jacobian_Z_Y)
-        return jacobian_L_W, jacobian_L_B, jacobian_L_Y
+        if self.layer_type == "input":
+            pass
+        if self.layer_type == "softmax":
+            jacobian_S_Y = self.compute_jacobian_S_Y()
+            jacobian_L_Y = self.compute_jacobian_L_Y(jacobian_L_Z, jacobian_S_Y)
+            return None, None, jacobian_L_Y
+        else:
+            jacobian_Z_sum = self.compute_jacobian_Z_sum()
+            jacobian_Z_Y = self.compute_jacobian_Z_Y(jacobian_Z_sum)
+            jacobian_Z_W = self.compute_jacobian_Z_W(jacobian_Z_sum)
+            jacobian_Z_B = self.compute_jacobian_Z_B(jacobian_Z_sum)
+            jacobian_L_W = self.compute_jacobian_L_W(jacobian_L_Z, jacobian_Z_W)
+            jacobian_L_B = self.compute_jacobian_L_B(jacobian_L_Z, jacobian_Z_B)
+            jacobian_L_Y = self.compute_jacobian_L_Y(jacobian_L_Z, jacobian_Z_Y)
+            return jacobian_L_W, jacobian_L_B, jacobian_L_Y
 
     def update_parameters(self, weight_gradient, bias_gradient, learning_rate):
+        # Use private learning rate if applicable
         if self.learning_rate:
             self.weights = self.weights - self.learning_rate * weight_gradient
             self.bias = self.bias - self.learning_rate * bias_gradient

@@ -1,10 +1,10 @@
 import numpy as np
 
 
-def relu(x):
-    return np.maximum(0, x)
+def relu(X):
+    return np.maximum(0, X)
 
 
-def relu_derivative(x):
+def relu_derivative(X):
     # Derivative of ReLU is 1 for positive values, 0 otherwise
-    return np.where(x > 0, 1, 0)
+    return np.where(X > 0, 1, 0)

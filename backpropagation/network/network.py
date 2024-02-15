@@ -41,6 +41,7 @@ class Network:
             for minibatch_X, minibatch_y in self.fetch_minibatch(train_X, train_y, minibatch_size):
                 Z = self.forward_pass(minibatch_X.T)
                 loss = self.compute_loss(Z, minibatch_y.T)
+                print(Z, minibatch_y.T, loss, sep="\n")
                 train_loss.append(np.sum(loss))
                 weight_gradients, bias_gradients = self.backward_pass(Z, minibatch_y.T)
                 self.update_parameters(weight_gradients, bias_gradients)
@@ -95,12 +96,15 @@ class Network:
         weight_gradient_stack = []
         bias_gradient_stack = []
 
+        # TODO update to support softmax layer without weights
         for layer in reversed(self.layers[1:]):
             jacobian_L_W, jacobian_L_B, jacobian_L_Z = layer.backward_pass(jacobian_L_Z)
             weight_gradient = np.squeeze(np.sum(jacobian_L_W, axis=-1))
             bias_gradient = np.squeeze(np.sum(jacobian_L_B, axis=-1)).reshape(1,-1)
-            print(weight_gradient)
-            print(bias_gradient)
+            if self.verbose:
+                print(layer.layer_type)
+                print(weight_gradient)
+                print(bias_gradient)
             weight_gradient_stack.insert(0, weight_gradient)
             bias_gradient_stack.insert(0, bias_gradient)
 
@@ -136,4 +140,5 @@ class Network:
 
     def update_parameters(self, weight_gradients, bias_gradients):
         for i in range(1, len(self.layers)):
-            self.layers[i].update_parameters(weight_gradients[i-1], bias_gradients[i-1], self.learning_rate)
+            if self.layers[i].layer_type == "hidden" or self.layers[i].layer_type == "output":
+                self.layers[i].update_parameters(weight_gradients[i-1], bias_gradients[i-1], self.learning_rate)

@@ -23,6 +23,7 @@ class ConfigParser:
         self._validate_input_layer()
         self._validate_hidden_layers()
         self._validate_output_layer()
+        self._validate_softmax_layer()
 
         globals_config = self.config["GLOBALS"]
         network = Network(loss_function=globals_config["loss_function"],
@@ -46,15 +47,21 @@ class ConfigParser:
                                  learning_rate=layer_config["learning_rate"])
             network.add_layer(hidden_layer)
 
-        output_layer_config = [
-            layer for layer in self.config["LAYERS"] if layer["layer_type"] == "output"][0]
-        output_layer = Layer(layer_type=output_layer_config["layer_type"],
-                             neurons=output_layer_config["neurons"],
-                             activation_function=output_layer_config["activation_function"],
-                             weight_range=output_layer_config["weight_range"],
-                             bias_range=output_layer_config["bias_range"],
-                             learning_rate=output_layer_config["learning_rate"])
-        network.add_layer(output_layer)
+        output_layer_config = [layer for layer in self.config["LAYERS"] if layer["layer_type"] == "output"]
+        if output_layer_config:
+            output_layer = Layer(layer_type=output_layer_config[0]["layer_type"],
+                                neurons=output_layer_config[0]["neurons"],
+                                activation_function=output_layer_config[0]["activation_function"],
+                                weight_range=output_layer_config[0]["weight_range"],
+                                bias_range=output_layer_config[0]["bias_range"],
+                                learning_rate=output_layer_config[0]["learning_rate"])
+            network.add_layer(output_layer)
+
+        softmax_layer_config = [layer for layer in self.config["LAYERS"] if layer["layer_type"] == "softmax"]
+        if softmax_layer_config:
+            softmax_layer = Layer(layer_type=softmax_layer_config[0]["layer_type"],
+                                  neurons=softmax_layer_config[0]["neurons"])
+            network.add_layer(softmax_layer)
 
         return network
 
@@ -107,19 +114,15 @@ class ConfigParser:
         except:
             raise ValueError("Config missing LAYERS")
 
-        input_layer = [
-            layer for layer in layers_config if layer["layer_type"] == "input"]
+        input_layer = [layer for layer in layers_config if layer["layer_type"] == "input"]
         if not input_layer or len(input_layer) > 1:
-            raise ValueError(
-                "Either no input layer or more than one input layer in config")
+            raise ValueError("Either no input layer or more than one input layer in config")
 
         required = ["layer_type", "neurons"]
 
-        missing_required_keys = [
-            param for param in required if param not in input_layer[0]]
+        missing_required_keys = [param for param in required if param not in input_layer[0]]
         if missing_required_keys:
-            raise ValueError(
-                f"Missing key(s) in input layer: {missing_required_keys}")
+            raise ValueError(f"Missing key(s) in input layer: {missing_required_keys}")
 
         required_keys_with_none_values = [
             param for param in required if param in input_layer[0] and input_layer[0][param] is None]
@@ -182,20 +185,38 @@ class ConfigParser:
                     f"Unexpected key(s) in hidden layer: {', '.join(unexpected_keys)}")
 
     def _validate_output_layer(self):
-        # TODO
         try:
             layers_config = self.config.get("LAYERS", {})
         except:
             raise ValueError("Config missing LAYERS")
 
-        output_layer = [
-            layer for layer in layers_config if layer["layer_type"] == "output"]
-        if not output_layer or len(output_layer) > 1:
-            raise ValueError(
-                "Either no output layer or more than one output layer in config")
+        output_layer = [layer for layer in layers_config if layer["layer_type"] == "output"]
+        if not output_layer:
+            return
+        if len(output_layer) > 1:
+            raise ValueError("Can't have more than 1 output layer")
 
-        # TODO
+        if output_layer[0]["activation_function"] not in ("identity", "relu", "sigmoid"):
+            raise ValueError(f"Invalid activation function in output layer: {output_layer[0]['activation_function']}")
 
-        if output_layer[0]["activation_function"] not in ("softmax", "identity", "relu", "sigmoid"):
-            raise ValueError(
-                f"Invalid activation function in output layer: {output_layer[0]['activation_function']}")
+    def _validate_softmax_layer(self):
+        try:
+            layers_config = self.config.get("LAYERS", {})
+        except:
+            raise ValueError("Config missing LAYERS")
+
+        softmax_layer = [layer for layer in layers_config if layer["layer_type"] == "softmax"]
+        if not softmax_layer:
+            return
+        if len(softmax_layer) > 1:
+            raise ValueError("Can't have more than 1 softmax layer")
+
+        required = ["layer_type", "neurons"]
+
+        missing_required_keys = [param for param in required if param not in softmax_layer[0]]
+        if missing_required_keys:
+            raise ValueError(f"Missing key(s) in softmax layer: {missing_required_keys}")
+
+        unexpected_keys = [key for key in softmax_layer[0] if key not in required]
+        if unexpected_keys:
+            raise ValueError(f"Unexpected key(s) in input layer: {', '.join(unexpected_keys)}")
