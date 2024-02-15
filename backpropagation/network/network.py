@@ -36,18 +36,29 @@ class Network:
         Assuming y is in row vector shape (cases, targets)
         Both X and y is transposed to support the network conventions
         """
+        train_loss = []
+        validation_loss = []
         minibatch_count = 0
+
         while minibatch_count < num_minibatches:
             # Fetch a minibatch of training cases
             for minibatch_X, minibatch_y in self.fetch_minibatch(train_X, train_y, minibatch_size):
                 Z = self.forward_pass(minibatch_X.T)
                 loss = self.compute_loss(Z, minibatch_y.T)
+                train_loss.append(np.sum(loss))
                 weight_gradients, bias_gradients = self.backward_pass(Z, minibatch_y.T)
                 self.update_parameters(weight_gradients, bias_gradients)
+
+                # Perform validation
+                Z = self.forward_pass(validation_X.T)
+                loss = self.compute_loss(Z, validation_y.T)
+                validation_loss.append(np.sum(loss))
 
                 minibatch_count += 1
                 if minibatch_count >= num_minibatches:
                     break
+
+        return train_loss, validation_loss
 
     def predict(self):
         pass

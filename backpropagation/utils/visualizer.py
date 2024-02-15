@@ -28,7 +28,14 @@ class Visualizer:
         plt.title("Learning Progression")
         plt.xlabel("Minibatch")
         plt.ylabel("Loss")
-        plt.plot(train_loss, label="Train")
-        plt.plot(validation_loss, label="Validation")
+        plt.plot(train_loss, label="Train", color="blue")
         plt.legend()
+
+        plt.figure()
+        plt.title("Learning Progression")
+        plt.xlabel("Minibatch")
+        plt.ylabel("Loss")
+        plt.plot(validation_loss, label="Validation", color="orange")
+        plt.legend()
+
         plt.show()

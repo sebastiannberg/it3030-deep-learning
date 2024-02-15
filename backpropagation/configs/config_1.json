@@ -9,7 +9,7 @@
     "LAYERS": [
         {
             "layer_type": "input",
-            "neurons": 2500
+            "neurons": 50
         },
         {
             "layer_type": "hidden",
