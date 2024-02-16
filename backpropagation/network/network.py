@@ -43,7 +43,7 @@ class Network:
                     print("NETWORK INPUT:\n", minibatch_X.T)
                 Z = self.forward_pass(minibatch_X.T)
                 if self.verbose:
-                    print("NETWORK OUTPUT:\n")
+                    print("NETWORK OUTPUT:\n", Z)
                     print("TARGET VALUES:\n", minibatch_y.T)
                 loss = self.compute_loss(Z, minibatch_y.T)
                 train_loss.append(np.sum(loss))

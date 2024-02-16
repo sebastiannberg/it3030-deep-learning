@@ -4,6 +4,7 @@ from activation_functions.identity import identity, identity_derivative
 from activation_functions.relu import relu, relu_derivative
 from activation_functions.sigmoid import sigmoid, sigmoid_derivative
 from utils.softmax import softmax
+from activation_functions.tanh import tanh, tanh_derivative
 
 
 class Layer:
@@ -127,6 +128,8 @@ class Layer:
             return relu(X)
         elif self.activation_function == "sigmoid":
             return sigmoid(X)
+        elif self.activation_function == "tanh":
+            return tanh(X)
         else:
             raise ValueError(f"Received unsupported activation function: {self.activation_function}")
 
@@ -137,6 +140,8 @@ class Layer:
             return relu_derivative(X)
         elif self.activation_function == "sigmoid":
             return sigmoid_derivative(X)
+        elif self.activation_function == "tanh":
+            return tanh_derivative(X)
         else:
             raise ValueError(f"Received unsupported activation function: {self.activation_function}")
 

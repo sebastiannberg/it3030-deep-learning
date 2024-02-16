@@ -7,7 +7,7 @@ from utils.visualizer import Visualizer
 
 # Parse config file
 config_parser = ConfigParser()
-network = config_parser.parse_config_file("config_4.json")
+network = config_parser.parse_config_file("config_1.json")
 
 # Generate data
 data_generator = DataGenerator()
