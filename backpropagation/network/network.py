@@ -39,10 +39,16 @@ class Network:
         while minibatch_count < num_minibatches:
             # Fetch a minibatch of training cases
             for minibatch_X, minibatch_y in self.fetch_minibatch(train_X, train_y, minibatch_size):
+                if self.verbose:
+                    print("NETWORK INPUT:\n", minibatch_X.T)
                 Z = self.forward_pass(minibatch_X.T)
+                if self.verbose:
+                    print("NETWORK OUTPUT:\n")
+                    print("TARGET VALUES:\n", minibatch_y.T)
                 loss = self.compute_loss(Z, minibatch_y.T)
-                print(Z, minibatch_y.T, loss, sep="\n")
                 train_loss.append(np.sum(loss))
+                if self.verbose:
+                    print("LOSS:\n", loss)
                 weight_gradients, bias_gradients = self.backward_pass(Z, minibatch_y.T)
                 self.update_parameters(weight_gradients, bias_gradients)
 
@@ -60,7 +66,9 @@ class Network:
     def predict(self, X, y):
         Z = self.forward_pass(X.T)
         loss = self.compute_loss(Z, y.T)
-        return(np.sum(loss))
+        total_loss = np.sum(loss)
+        average_loss = np.mean(loss)
+        return Z.T, total_loss, average_loss
 
     def fetch_minibatch(self, X, y, minibatch_size):
         assert len(X) == len(y)
@@ -96,15 +104,13 @@ class Network:
         weight_gradient_stack = []
         bias_gradient_stack = []
 
-        # TODO update to support softmax layer without weights
         for layer in reversed(self.layers[1:]):
             jacobian_L_W, jacobian_L_B, jacobian_L_Z = layer.backward_pass(jacobian_L_Z)
             weight_gradient = np.squeeze(np.sum(jacobian_L_W, axis=-1))
             bias_gradient = np.squeeze(np.sum(jacobian_L_B, axis=-1)).reshape(1,-1)
             if self.verbose:
-                print(layer.layer_type)
-                print(weight_gradient)
-                print(bias_gradient)
+                print("WEIGHT GRADIENT:\n", weight_gradient)
+                print("BIAS GRADIENT\n", bias_gradient)
             weight_gradient_stack.insert(0, weight_gradient)
             bias_gradient_stack.insert(0, bias_gradient)
 

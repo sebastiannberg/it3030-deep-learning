@@ -166,7 +166,7 @@ class ConfigParser:
                 raise ValueError(
                     f"Required key(s) with None value in hidden layer: {required_keys_with_none_values}")
 
-            if layer["activation_function"] not in ("relu", "identity", "sigmoid"):
+            if layer["activation_function"] not in ("relu", "identity", "sigmoid", "tanh"):
                 raise ValueError(
                     f"Invalid activation function for hidden layer: {layer['activation_function']}")
 
@@ -196,7 +196,7 @@ class ConfigParser:
         if len(output_layer) > 1:
             raise ValueError("Can't have more than 1 output layer")
 
-        if output_layer[0]["activation_function"] not in ("identity", "relu", "sigmoid"):
+        if output_layer[0]["activation_function"] not in ("identity", "relu", "sigmoid", "tanh"):
             raise ValueError(f"Invalid activation function in output layer: {output_layer[0]['activation_function']}")
 
     def _validate_softmax_layer(self):
