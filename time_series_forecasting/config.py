@@ -1,5 +1,20 @@
-configuration = {
-    "bidding_area_train_all": "NO1", # Options: "NO1", "NO2", "NO3", "NO4", "NO5"
-    "architecture": "convolutional", # Options: "recurrent", "convolutional", "transformer", "regression"
-    "bidding_area_train_one": "NO3", # Options: "NO1", "NO2", "NO3", "NO4", "NO5"
+global_config = {
+    "csv_filename": "consumption_and_temperatures.csv",
+    "sequence_length": 24,
+    "forecast_horizon": 1,
+    "bidding_area": "NO1",
+    "model": "cnn_forecasting_model",
+    "load_model": False,
+    "save_model": False,
+    "train": True,
+    "test": True
+}
+
+test_config = {
+    "random_seed": 42
+}
+
+cnn_config = {
+    "lr": 0.001,
+    "epochs": 5
 }
