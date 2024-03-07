@@ -36,9 +36,10 @@ class PowerConsumptionDataset(Dataset):
         features = np.hstack([historical_temps.reshape(-1, 1), historical_consumption.reshape(-1, 1)])
 
         if self.mode == "train":
-            # For "n in, 1 out" targeting the next timestep consumption
-            target = self.data[self.consumption_col][end_idx:end_idx + 1].to_numpy(dtype=np.float32)
+            targets_start_idx = end_idx
+            targets_end_idx = end_idx + self.forecast_horizon
+            targets = self.data[self.consumption_col][targets_start_idx:targets_end_idx].to_numpy(dtype=np.float32)
         elif self.mode == "test":
-            target = np.array([])
+            targets = np.array([])
 
-        return torch.from_numpy(features), torch.from_numpy(target)
+        return torch.from_numpy(features), torch.from_numpy(targets)
