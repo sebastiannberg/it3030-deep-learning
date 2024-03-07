@@ -14,7 +14,7 @@ global_config = {
     "save_model": False,
     "train": True,
     "test": True,
-    "visualize": True
+    "visualize": False
 }
 
 test_config = {
@@ -23,8 +23,8 @@ test_config = {
 
 cnn_config = {
     "model": CNNForecastingModel,
-    "loss_function": nn.MSELoss,
     "optimizer": optim.Adam,
+    "loss_function": nn.MSELoss,
     "lr": 0.001,
     "epochs": 5
 }
