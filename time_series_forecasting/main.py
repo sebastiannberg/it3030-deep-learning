@@ -72,12 +72,7 @@ def train(model, optimizer, loss_function, data_loader, epochs):
     for epoch in range(epochs):
         for features, targets in data_loader:
             optimizer.zero_grad()
-            forecasts = []
-            for _ in range(24):
-                forecast = model(features)
-                forecasts.append(forecast)
-            forecasts = torch.stack(forecasts, dim=1).squeeze(-1)
-            loss = loss_function(forecasts, targets)
+            loss = loss_function(features, targets)
             loss.backward()
             optimizer.step()
         print(f"Epoch {epoch+1}, Loss: {loss.item()}")
