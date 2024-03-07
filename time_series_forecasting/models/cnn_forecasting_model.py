@@ -15,7 +15,6 @@ class CNNForecastingModel(nn.Module):
     def forward(self, x):
         # Permute x from [batch_size, sequence_length, num_channels] to [batch_size, num_channels, sequence_length]
         x = x.permute(0, 2, 1)
-        # TODO n in 1 out
         x = torch.relu(self.conv1(x))
         x = self.pool(x)
         x = self.flatten(x)

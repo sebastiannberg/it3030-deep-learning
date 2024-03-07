@@ -13,7 +13,7 @@ global_config = {
     "load_model": False,
     "save_model": False,
     "train": True,
-    "test": True,
+    "test": False,
     "visualize": False
 }
 

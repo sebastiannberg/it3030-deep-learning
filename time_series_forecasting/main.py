@@ -1,3 +1,4 @@
+import torch
 from torch.utils.data import DataLoader
 import os
 
@@ -37,7 +38,10 @@ def setup():
         dataset_path = os.path.join(os.path.dirname(__file__), "data", "raw", global_config["csv_filename"])
         print(f"Loading data from {dataset_path}")
 
-    # Create needed datasets
+    # Initialize data loaders to None in case they're not used
+    train_data_loader = None
+    test_data_loader = None
+
     if global_config["train"]:
         train_dataset = PowerConsumptionDataset(
             csv_file=dataset_path,
@@ -68,8 +72,12 @@ def train(model, optimizer, loss_function, data_loader, epochs):
     for epoch in range(epochs):
         for features, targets in data_loader:
             optimizer.zero_grad()
-            predictions = model(features)
-            loss = loss_function(predictions, targets)
+            forecasts = []
+            for _ in range(24):
+                forecast = model(features)
+                forecasts.append(forecast)
+            forecasts = torch.stack(forecasts, dim=1).squeeze(-1)
+            loss = loss_function(forecasts, targets)
             loss.backward()
             optimizer.step()
         print(f"Epoch {epoch+1}, Loss: {loss.item()}")
