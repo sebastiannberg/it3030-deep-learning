@@ -36,7 +36,7 @@ class PowerConsumptionDataset(Dataset):
 
         if self.mode == "train":
             # Fetch the single target value immediately following the historical sequence
-            target = self.data[self.consumption_col][end_idx].astype(np.float32)
+            target = np.array(self.data[self.consumption_col][end_idx], dtype=np.float32).reshape(1)
         elif self.mode == "test":
             # Fetch the next sequence of target values of length forecast_horizon
             targets_start_idx = end_idx

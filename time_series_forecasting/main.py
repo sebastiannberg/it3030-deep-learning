@@ -72,7 +72,8 @@ def train(model, optimizer, loss_function, data_loader, epochs):
     for epoch in range(epochs):
         for features, targets in data_loader:
             optimizer.zero_grad()
-            loss = loss_function(features, targets)
+            predictions = model(features)
+            loss = loss_function(predictions, targets)
             loss.backward()
             optimizer.step()
         print(f"Epoch {epoch+1}, Loss: {loss.item()}")
