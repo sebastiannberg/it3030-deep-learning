@@ -1,13 +1,12 @@
 import torch
 from torch.utils.data import Dataset
-import pandas as pd
 import numpy as np
 
 
 class PowerConsumptionDataset(Dataset):
 
-    def __init__(self, csv_file, sequence_length=24, forecast_horizon=24, bidding_area="NO1", mode="train"):
-        self.data = pd.read_csv(csv_file)
+    def __init__(self, data, sequence_length=24, forecast_horizon=24, bidding_area="NO1", mode="train"):
+        self.data = data
         self.sequence_length = sequence_length
         self.forecast_horizon = forecast_horizon
         self.bidding_area = bidding_area
@@ -21,7 +20,7 @@ class PowerConsumptionDataset(Dataset):
             # In "n in, 1 out" training, ensuring each sequence has a single next step as the target
             return len(self.data) - self.sequence_length - 1
         elif self.mode == "test":
-            return len(self.data) - self.sequence_length
+            return len(self.data) - self.sequence_length - self.forecast_horizon + 1
         else:
             raise ValueError(f"{self.mode} not supported in dataset")
 
@@ -29,8 +28,8 @@ class PowerConsumptionDataset(Dataset):
         start_idx = idx
         end_idx = idx + self.sequence_length
 
-        historical_temps = self.data[self.temperature_col][start_idx:end_idx].to_numpy(dtype=np.float32)
-        historical_consumption = self.data[self.consumption_col][start_idx:end_idx].to_numpy(dtype=np.float32)
+        historical_temps = self.data[self.temperature_col].iloc[start_idx:end_idx].to_numpy(dtype=np.float32)
+        historical_consumption = self.data[self.consumption_col].iloc[start_idx:end_idx].to_numpy(dtype=np.float32)
         # Features stacked horizontally (time steps x features)
         features = np.hstack([historical_temps.reshape(-1, 1), historical_consumption.reshape(-1, 1)])
 
@@ -41,6 +40,6 @@ class PowerConsumptionDataset(Dataset):
             # Fetch the next sequence of target values of length forecast_horizon
             targets_start_idx = end_idx
             targets_end_idx = targets_start_idx + self.forecast_horizon
-            target = self.data[self.consumption_col][targets_start_idx:targets_end_idx].to_numpy(dtype=np.float32)
+            target = self.data[self.consumption_col].iloc[targets_start_idx:targets_end_idx].to_numpy(dtype=np.float32)
 
         return torch.from_numpy(features), torch.from_numpy(target)
