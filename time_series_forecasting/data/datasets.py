@@ -5,41 +5,32 @@ import numpy as np
 
 class PowerConsumptionDataset(Dataset):
 
-    def __init__(self, data, sequence_length=24, forecast_horizon=24, bidding_area="NO1", mode="train"):
+    def __init__(self, data, sequence_length=24, forecast_horizon=24, bidding_area="NO1"):
         self.data = data
         self.sequence_length = sequence_length
         self.forecast_horizon = forecast_horizon
         self.bidding_area = bidding_area
-        self.mode = mode
         self.temperature_col = f"{bidding_area}_temperature"
         self.consumption_col = f"{bidding_area}_consumption"
 
     def __len__(self):
         # TODO double check this method
-        if self.mode == "train":
-            # In "n in, 1 out" training, ensuring each sequence has a single next step as the target
-            return len(self.data) - self.sequence_length - 1
-        elif self.mode == "test":
-            return len(self.data) - self.sequence_length - self.forecast_horizon + 1
-        else:
-            raise ValueError(f"{self.mode} not supported in dataset")
+        return len(self.data) - self.sequence_length - 1
 
     def __getitem__(self, idx):
         start_idx = idx
-        end_idx = idx + self.sequence_length
+        end_sequence_idx = idx + self.sequence_length
+        end_forecast_idx = end_sequence_idx + self.forecast_horizon
 
-        historical_temps = self.data[self.temperature_col].iloc[start_idx:end_idx].to_numpy(dtype=np.float32)
-        historical_consumption = self.data[self.consumption_col].iloc[start_idx:end_idx].to_numpy(dtype=np.float32)
+        historical_temps = self.data[self.temperature_col].iloc[start_idx:end_sequence_idx].to_numpy(dtype=np.float32)
+        historical_consumption = self.data[self.consumption_col].iloc[start_idx:end_sequence_idx].to_numpy(dtype=np.float32)
         # Features stacked horizontally (time steps x features)
         features = np.hstack([historical_temps.reshape(-1, 1), historical_consumption.reshape(-1, 1)])
 
-        if self.mode == "train":
-            # Fetch the single target value immediately following the historical sequence
-            target = np.array(self.data[self.consumption_col][end_idx], dtype=np.float32).reshape(1)
-        elif self.mode == "test":
-            # Fetch the next sequence of target values of length forecast_horizon
-            targets_start_idx = end_idx
-            targets_end_idx = targets_start_idx + self.forecast_horizon
-            target = self.data[self.consumption_col].iloc[targets_start_idx:targets_end_idx].to_numpy(dtype=np.float32)
+        # Forecast proxy temperatures fore the forecast horizon
+        forecast_proxy_temps = self.data[self.temperature_col].iloc[end_sequence_idx:end_forecast_idx].to_numpy(dtype=np.float32).reshape(-1, 1)
 
-        return torch.from_numpy(features), torch.from_numpy(target)
+        # Fetch the forecast horizon of target values immediately following the historical sequence
+        targets = self.data[self.consumption_col].iloc[end_sequence_idx:end_forecast_idx].to_numpy(dtype=np.float32)
+
+        return torch.from_numpy(features), torch.from_numpy(forecast_proxy_temps), torch.from_numpy(targets)
