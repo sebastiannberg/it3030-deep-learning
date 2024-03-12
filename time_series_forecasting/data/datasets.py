@@ -14,8 +14,7 @@ class PowerConsumptionDataset(Dataset):
         self.consumption_col = f"{bidding_area}_consumption"
 
     def __len__(self):
-        # TODO double check this method
-        return len(self.data) - self.sequence_length - 1
+        return len(self.data) - self.sequence_length - self.forecast_horizon - 1
 
     def __getitem__(self, idx):
         start_idx = idx

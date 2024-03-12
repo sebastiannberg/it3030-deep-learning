@@ -4,13 +4,15 @@ import torch.nn as nn
 
 class CNNForecastingModel(nn.Module):
 
-    def __init__(self):
+    def __init__(self, num_features, sequence_length):
         super().__init__()
-        self.conv1 = nn.Conv1d(in_channels=2, out_channels=64, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv1d(in_channels=num_features, out_channels=64, kernel_size=3, padding=1)
         self.conv2 = nn.Conv1d(in_channels=64, out_channels=128, kernel_size=3, padding=1)
         self.pool = nn.AvgPool1d(kernel_size=2)
         self.flatten = nn.Flatten()
-        self.dense1 = nn.Linear(128 * 6, 50)
+        # Each pooling halves sequence length
+        sequence_length_after_pooling = sequence_length // (2 * 2)
+        self.dense1 = nn.Linear(128 * sequence_length_after_pooling, 50)
         self.dense2 = nn.Linear(50, 1)
 
     def forward(self, x):

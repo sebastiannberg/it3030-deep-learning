@@ -17,14 +17,10 @@ global_config = {
     "visualize": False
 }
 
-test_config = {
-    "random_seed": 42
-}
-
 cnn_config = {
     "model": CNNForecastingModel,
     "optimizer": optim.Adam,
     "loss_function": nn.L1Loss,
-    "lr": 0.0001,
+    "lr": 0.001,
     "epochs": 1
 }
