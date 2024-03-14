@@ -14,13 +14,13 @@ global_config = {
     "save_model": False,
     "train": True,
     "test": True,
-    "visualize": False
+    "visualize": True
 }
 
 cnn_config = {
     "model": CNNForecastingModel,
     "optimizer": optim.Adam,
     "loss_function": nn.L1Loss,
-    "lr": 0.001,
-    "epochs": 1
+    "lr": 0.00001,
+    "epochs": 6
 }

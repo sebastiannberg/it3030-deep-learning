@@ -7,6 +7,7 @@ import os
 
 from config import global_config, cnn_config
 from data.datasets import PowerConsumptionDataset
+from evaluation.visualize import TrainingVisualizer
 
 def setup():
     """
@@ -18,9 +19,6 @@ def setup():
         raise NotImplementedError()
 
     if global_config["save_model"]:
-        raise NotImplementedError()
-
-    if global_config["visualize"]:
         raise NotImplementedError()
 
     # Load data
@@ -109,7 +107,7 @@ def n_in_one_out(model, features, temperature_forecasts, targets):
 
     return consumption_forecasts
 
-def train_one_epoch(model, optimizer, loss_function, train_data_loader):
+def train_one_epoch(model, optimizer, loss_function, train_data_loader, training_visualizer):
     running_loss = []
 
     for features, temperature_forecasts, targets in train_data_loader:
@@ -125,18 +123,19 @@ def train_one_epoch(model, optimizer, loss_function, train_data_loader):
         # Adjust weights
         optimizer.step()
         # Gather data
+        training_visualizer.add_minibatch_datapoint(loss.item())
         running_loss.append(loss.item())
 
     return np.mean(running_loss)
 
-def train(model, optimizer, loss_function, train_data_loader, validation_data_loader, epochs):
+def train(model, optimizer, loss_function, train_data_loader, validation_data_loader, epochs, training_visualizer):
     start_time = time.time()
 
     print("\033[1;32m" + "="*15 + " Training " + "="*15 + "\033[0m")
     for epoch in range(epochs):
         # Training loop
         model.train(True)
-        avg_loss = train_one_epoch(model, optimizer, loss_function, train_data_loader)
+        avg_loss = train_one_epoch(model, optimizer, loss_function, train_data_loader, training_visualizer)
         model.train(False)
 
         # Validation loop
@@ -147,6 +146,7 @@ def train(model, optimizer, loss_function, train_data_loader, validation_data_lo
             running_validation_loss.append(validation_loss.item())
         avg_validation_loss = np.mean(running_validation_loss)
 
+        training_visualizer.add_epoch_datapoint(avg_loss, avg_validation_loss)
         print(f"Epoch {epoch+1}, Training Loss: {avg_loss}, Validation Loss: {avg_validation_loss}")
 
     end_time = time.time()
@@ -169,12 +169,17 @@ def test(model, loss_function, test_data_loader):
 
 def main():
     model, optimizer, loss_function, train_data_loader, validation_data_loader, test_data_loader, nn_config = setup()
+    training_visualizer = TrainingVisualizer()
 
     if global_config["train"]:
-        train(model, optimizer, loss_function, train_data_loader, validation_data_loader, epochs=nn_config["epochs"])
+        train(model, optimizer, loss_function, train_data_loader, validation_data_loader, nn_config["epochs"], training_visualizer)
 
     if global_config["test"]:
         test(model, loss_function, test_data_loader)
+
+    if global_config["visualize"]:
+        training_visualizer.plot_training_progress()
+
 
 
 if __name__ == "__main__":
