@@ -154,7 +154,7 @@ def train(model, optimizer, loss_function, train_data_loader, validation_data_lo
         print(f"Epoch {epoch+1}, Training Loss: {avg_loss}, Validation Loss: {avg_validation_loss}")
 
         if save:
-            current_time = datetime.now().strftime("%d-%m-%Y-%H:%M:%S")
+            current_time = datetime.now().strftime("%d-%m-%Y-%H%M%S")
             model_save_path = os.path.join(os.path.dirname(__file__), "saved_models", model.__class__.__name__, f"{current_time}_epoch_{epoch+1}.pt")
             os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
             torch.save(model.state_dict(), model_save_path)
