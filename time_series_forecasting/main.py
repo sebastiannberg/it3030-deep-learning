@@ -17,9 +17,6 @@ def setup():
     """
     print("\033[1;32m" + "="*15 + " Setup " + "="*15 + "\033[0m")
 
-    if global_config["load_model"] and global_config["save_model"]:
-        raise ValueError("Cannot load model and save model at same time. Change config file.")
-
     # Load data
     dataset_path = os.path.join(os.path.dirname(__file__), "data", "raw", global_config["csv_filename"])
     print(f"Loading data from {dataset_path}")
@@ -60,7 +57,15 @@ def setup():
     loss_function = nn_config["loss_function"]()
     print(f"Model: {model.__class__.__name__}")
     print(f"Optimizer: {optimizer.__class__.__name__}")
-    print(f"Loss function: {loss_function.__class__.__name__}")
+    print(f"Loss Function: {loss_function.__class__.__name__}")
+
+    if global_config["load_model"]:
+        model_load_path = os.path.join(os.path.dirname(__file__), "saved_models", model.__class__.__name__, global_config["load_model_filename"])
+        if os.path.exists(model_load_path):
+            model.load_state_dict(torch.load(model_load_path))
+            print(f"Model loaded from {model_load_path}")
+        else:
+            raise FileNotFoundError(f"No model found at {model_load_path}")
 
     return model, optimizer, loss_function, train_data_loader, validation_data_loader, test_data_loader, nn_config
 
@@ -149,8 +154,8 @@ def train(model, optimizer, loss_function, train_data_loader, validation_data_lo
         print(f"Epoch {epoch+1}, Training Loss: {avg_loss}, Validation Loss: {avg_validation_loss}")
 
         if save:
-            current_time = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
-            model_save_path = os.path.join(os.path.dirname(__file__), "saved_models", model.__class__.__name__, f"time_{current_time}_epoch_{epoch+1}.pt")
+            current_time = datetime.now().strftime("%d-%m-%Y-%H:%M:%S")
+            model_save_path = os.path.join(os.path.dirname(__file__), "saved_models", model.__class__.__name__, f"{current_time}_epoch_{epoch+1}.pt")
             os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
             torch.save(model.state_dict(), model_save_path)
             print(f"Model saved to {model_save_path}")
@@ -188,10 +193,11 @@ def main():
         test(model, loss_function, test_data_loader, forecast_visualizer)
 
     if global_config["visualize"]:
-        training_visualizer.plot_training_progress()
-        forecast_visualizer.plot_consumption_forecast()
-        forecast_visualizer.plot_error_statistics()
-
+        if global_config["train"]:
+            training_visualizer.plot_training_progress()
+        if global_config["test"]:
+            forecast_visualizer.plot_consumption_forecast()
+            forecast_visualizer.plot_error_statistics()
 
 
 if __name__ == "__main__":

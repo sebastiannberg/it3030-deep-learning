@@ -10,9 +10,10 @@ global_config = {
     "forecast_horizon": 24,
     "bidding_area": "NO1",
     "model": "cnn_forecasting_model",
-    "load_model": False,
+    "load_model": True,
+    "load_model_filename": "time_14-03-2024-19-03-13_epoch_1.pt",
     "save_model": True,
-    "train": True,
+    "train": False,
     "test": True,
     "visualize": True
 }
