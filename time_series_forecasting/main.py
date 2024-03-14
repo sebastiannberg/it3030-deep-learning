@@ -3,11 +3,13 @@ from torch.utils.data import DataLoader, Subset
 import pandas as pd
 import numpy as np
 import time
+from datetime import datetime
 import os
 
 from config import global_config, cnn_config
 from data.datasets import PowerConsumptionDataset
 from evaluation.visualize import TrainingVisualizer
+from evaluation.visualize import ForecastVisualizer
 
 def setup():
     """
@@ -15,11 +17,8 @@ def setup():
     """
     print("\033[1;32m" + "="*15 + " Setup " + "="*15 + "\033[0m")
 
-    if global_config["load_model"]:
-        raise NotImplementedError()
-
-    if global_config["save_model"]:
-        raise NotImplementedError()
+    if global_config["load_model"] and global_config["save_model"]:
+        raise ValueError("Cannot load model and save model at same time. Change config file.")
 
     # Load data
     dataset_path = os.path.join(os.path.dirname(__file__), "data", "raw", global_config["csv_filename"])
@@ -44,7 +43,7 @@ def setup():
     print(f"Validation dataset created with {len(validation_dataset)} samples from bidding area {global_config['bidding_area']}")
     print(f"Test dataset created with {len(test_dataset)} samples from bidding area {global_config['bidding_area']}")
 
-    train_data_loader = DataLoader(train_dataset, batch_size=32, shuffle=False, drop_last=True)
+    train_data_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, drop_last=True)
     validation_data_loader = DataLoader(validation_dataset, batch_size=32, shuffle=False, drop_last=True)
     test_data_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, drop_last=True)
 
@@ -94,7 +93,7 @@ def n_in_one_out(model, features, temperature_forecasts, targets):
         # Add current timestep to features (now size is (sequence_length, features))
         features = torch.cat((features, current_timestep_row), dim=1)
 
-        # Add a row with forecast values (temp_forecast_i+1, 0)
+        # Add a row with forecast values (temp_forecast_i, 0)
         forecast_row = torch.zeros(32, 1, 2)
         forecast_row[:, :, 0] = temperature_forecasts[:, i, :]
         # Size is now (sequence_length + 1, features)
@@ -110,7 +109,7 @@ def n_in_one_out(model, features, temperature_forecasts, targets):
 def train_one_epoch(model, optimizer, loss_function, train_data_loader, training_visualizer):
     running_loss = []
 
-    for features, temperature_forecasts, targets in train_data_loader:
+    for features, temperature_forecasts, targets, _ in train_data_loader:
         # Zeroing gradients for each minibatch
         optimizer.zero_grad()
 
@@ -128,7 +127,7 @@ def train_one_epoch(model, optimizer, loss_function, train_data_loader, training
 
     return np.mean(running_loss)
 
-def train(model, optimizer, loss_function, train_data_loader, validation_data_loader, epochs, training_visualizer):
+def train(model, optimizer, loss_function, train_data_loader, validation_data_loader, epochs, training_visualizer, save: bool):
     start_time = time.time()
 
     print("\033[1;32m" + "="*15 + " Training " + "="*15 + "\033[0m")
@@ -140,7 +139,7 @@ def train(model, optimizer, loss_function, train_data_loader, validation_data_lo
 
         # Validation loop
         running_validation_loss = []
-        for features, temperature_forecasts, targets in validation_data_loader:
+        for features, temperature_forecasts, targets, _ in validation_data_loader:
             consumption_forecasts = n_in_one_out(model, features, temperature_forecasts, targets)
             validation_loss = loss_function(consumption_forecasts, targets)
             running_validation_loss.append(validation_loss.item())
@@ -149,20 +148,30 @@ def train(model, optimizer, loss_function, train_data_loader, validation_data_lo
         training_visualizer.add_epoch_datapoint(avg_loss, avg_validation_loss)
         print(f"Epoch {epoch+1}, Training Loss: {avg_loss}, Validation Loss: {avg_validation_loss}")
 
+        if save:
+            current_time = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
+            model_save_path = os.path.join(os.path.dirname(__file__), "saved_models", model.__class__.__name__, f"time_{current_time}_epoch_{epoch+1}.pt")
+            os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
+            torch.save(model.state_dict(), model_save_path)
+            print(f"Model saved to {model_save_path}")
+
     end_time = time.time()
     total_time = end_time - start_time
     minutes, seconds = divmod(total_time, 60)
 
     print(f"Total training time: {int(minutes)} minutes and {round(seconds, 2)} seconds")
 
-def test(model, loss_function, test_data_loader):
+def test(model, loss_function, test_data_loader, forecast_visualizer):
     print("\033[1;32m" + "="*15 + " Testing " + "="*15 + "\033[0m")
 
     model.eval()
     running_test_loss = []
-    for features, temperature_forecasts, targets in test_data_loader:
+    for features, temperature_forecasts, targets, timestamps in test_data_loader:
         consumption_forecasts = n_in_one_out(model, features, temperature_forecasts, targets)
         test_loss = loss_function(consumption_forecasts, targets)
+        for i in range(len(features)):
+            # TODO remove fixed values
+            forecast_visualizer.add_datapoint(features[i, :, 1].detach(), consumption_forecasts[i].detach(), targets[i].detach(), timestamps[i].detach())
         running_test_loss.append(test_loss.item())
 
     print(f"Test Loss: {np.mean(running_test_loss)}")
@@ -170,15 +179,18 @@ def test(model, loss_function, test_data_loader):
 def main():
     model, optimizer, loss_function, train_data_loader, validation_data_loader, test_data_loader, nn_config = setup()
     training_visualizer = TrainingVisualizer()
+    forecast_visualizer = ForecastVisualizer()
 
     if global_config["train"]:
-        train(model, optimizer, loss_function, train_data_loader, validation_data_loader, nn_config["epochs"], training_visualizer)
+        train(model, optimizer, loss_function, train_data_loader, validation_data_loader, nn_config["epochs"], training_visualizer, global_config["save_model"])
 
     if global_config["test"]:
-        test(model, loss_function, test_data_loader)
+        test(model, loss_function, test_data_loader, forecast_visualizer)
 
     if global_config["visualize"]:
         training_visualizer.plot_training_progress()
+        forecast_visualizer.plot_consumption_forecast()
+        forecast_visualizer.plot_error_statistics()
 
 
 

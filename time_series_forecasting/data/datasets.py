@@ -32,4 +32,9 @@ class PowerConsumptionDataset(Dataset):
         # Fetch the forecast horizon of target values immediately following the historical sequence
         targets = self.data[self.consumption_col].iloc[end_sequence_idx:end_forecast_idx].to_numpy(dtype=np.float32)
 
-        return torch.from_numpy(features), torch.from_numpy(forecast_proxy_temps), torch.from_numpy(targets)
+        # Retreive all timestamps to be used for forecasting plots
+        timestamps = self.data["timestamp"].iloc[start_idx:end_forecast_idx].to_numpy(dtype=np.datetime64)
+        # Convert timestamps to Unix epoch time (seconds) as int64
+        timestamps_in_seconds = timestamps.astype('datetime64[s]').view('int64')
+
+        return torch.from_numpy(features), torch.from_numpy(forecast_proxy_temps), torch.from_numpy(targets), timestamps_in_seconds

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 
 class TrainingVisualizer:
@@ -34,6 +35,52 @@ class TrainingVisualizer:
 
 class ForecastVisualizer:
 
-    def __init__(self, sequence_length, forecast_horizon):
-        self.sequence_length = sequence_length
-        self.forecast_horizon = forecast_horizon
+    def __init__(self):
+        self.data = []
+
+    def add_datapoint(self, historical_consumption, consumption_forecasts, targets, timestamps):
+        self.data.append((historical_consumption.numpy(), consumption_forecasts.numpy(), targets.numpy(), timestamps.numpy()))
+
+    def plot_consumption_forecast(self, indexes=(0, 27, 124, 578)):
+        for i in indexes:
+            historical_consumption, consumption_forecasts, targets, timestamps = self.data[i]
+            # Convert seconds from epoch to datetime
+            timestamps = pd.to_datetime(timestamps, unit='s')
+
+            plt.figure()
+            plt.title("Forecast")
+            plt.xlabel("Timestamp")
+            plt.ylabel("Consumption (MWh)")
+
+            # Plot historical consumption in blue
+            plt.plot(timestamps[:len(historical_consumption)], historical_consumption, label="Historical Consumption", color="blue")
+            # Plot targets in green
+            plt.plot(timestamps[-len(targets):], targets, label="Actual Consumption", color="green")
+            # Plot consumption forecasts in orange
+            plt.plot(timestamps[-len(consumption_forecasts):], consumption_forecasts, label="Forecasted Consumption", color="orange")
+
+            plt.legend()
+            plt.xticks(rotation=75)
+            plt.tight_layout()
+
+        plt.show()
+
+    def plot_error_statistics(self):
+        errors = np.zeros((len(self.data), len(self.data[0][1])))
+
+        for i, (_, consumption_forecasts, targets, _) in enumerate(self.data):
+            abs_errors = np.abs(consumption_forecasts - targets)
+            errors[i, :] = abs_errors
+
+        # Calculate mean and standard deviation of errors for each hour in forecast horizon
+        mean_errors = np.mean(errors, axis=0)
+        std_errors = np.std(errors, axis=0)
+
+        plt.figure()
+        plt.title("Forecast Error Plot")
+        plt.xlabel("Forecast Hour")
+        plt.ylabel("Error")
+        plt.plot(mean_errors, label="Mean", color="blue")
+        plt.plot(std_errors, label="Standard Deviation", color="green")
+        plt.legend()
+        plt.show()

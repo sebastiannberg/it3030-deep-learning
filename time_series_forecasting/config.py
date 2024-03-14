@@ -11,7 +11,7 @@ global_config = {
     "bidding_area": "NO1",
     "model": "cnn_forecasting_model",
     "load_model": False,
-    "save_model": False,
+    "save_model": True,
     "train": True,
     "test": True,
     "visualize": True
@@ -21,6 +21,6 @@ cnn_config = {
     "model": CNNForecastingModel,
     "optimizer": optim.Adam,
     "loss_function": nn.L1Loss,
-    "lr": 0.00001,
-    "epochs": 6
+    "lr": 0.0001,
+    "epochs": 1
 }

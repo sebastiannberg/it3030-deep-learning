@@ -9,6 +9,7 @@ class CNNForecastingModel(nn.Module):
         self.conv1 = nn.Conv1d(in_channels=num_features, out_channels=64, kernel_size=3, padding=1)
         self.conv2 = nn.Conv1d(in_channels=64, out_channels=128, kernel_size=3, padding=1)
         self.pool = nn.AvgPool1d(kernel_size=2)
+        self.dropout = nn.Dropout(0.7)
         self.flatten = nn.Flatten()
         # Each pooling halves sequence length
         sequence_length_after_pooling = sequence_length // (2 * 2)
@@ -22,6 +23,7 @@ class CNNForecastingModel(nn.Module):
         x = self.pool(x)
         x = torch.relu(self.conv2(x))
         x = self.pool(x)
+        x = self.dropout(x)
         x = self.flatten(x)
         x = torch.relu(self.dense1(x))
         return self.dense2(x)
