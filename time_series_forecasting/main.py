@@ -8,8 +8,8 @@ import os
 
 from config import global_config, cnn_config
 from data.datasets import PowerConsumptionDataset
-from evaluation.visualize import TrainingVisualizer
-from evaluation.visualize import ForecastVisualizer
+from visualize import TrainingVisualizer, ForecastVisualizer, EvaluationVisualizer
+from models.cnn_forecasting_model import CNNForecastingModel
 
 def setup():
     """
@@ -45,7 +45,7 @@ def setup():
     test_data_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, drop_last=True)
 
     # Set nn_config to correct model configuration
-    if global_config["model"] == "cnn_forecasting_model":
+    if global_config["model"] == CNNForecastingModel:
         nn_config = cnn_config
     else:
         raise ValueError(f"{global_config['model']} in global config is not valid")
@@ -138,16 +138,18 @@ def train(model, optimizer, loss_function, train_data_loader, validation_data_lo
     print("\033[1;32m" + "="*15 + " Training " + "="*15 + "\033[0m")
     for epoch in range(epochs):
         # Training loop
-        model.train(True)
+        model.train()
         avg_loss = train_one_epoch(model, optimizer, loss_function, train_data_loader, training_visualizer)
-        model.train(False)
 
         # Validation loop
+        model.eval()
         running_validation_loss = []
-        for features, temperature_forecasts, targets, _ in validation_data_loader:
-            consumption_forecasts = n_in_one_out(model, features, temperature_forecasts, targets)
-            validation_loss = loss_function(consumption_forecasts, targets)
-            running_validation_loss.append(validation_loss.item())
+
+        with torch.no_grad():
+            for features, temperature_forecasts, targets, _ in validation_data_loader:
+                consumption_forecasts = n_in_one_out(model, features, temperature_forecasts, targets)
+                validation_loss = loss_function(consumption_forecasts, targets)
+                running_validation_loss.append(validation_loss.item())
         avg_validation_loss = np.mean(running_validation_loss)
 
         training_visualizer.add_epoch_datapoint(avg_loss, avg_validation_loss)
@@ -171,20 +173,62 @@ def test(model, loss_function, test_data_loader, forecast_visualizer):
 
     model.eval()
     running_test_loss = []
-    for features, temperature_forecasts, targets, timestamps in test_data_loader:
-        consumption_forecasts = n_in_one_out(model, features, temperature_forecasts, targets)
-        test_loss = loss_function(consumption_forecasts, targets)
-        for i in range(len(features)):
-            # TODO remove fixed values
-            forecast_visualizer.add_datapoint(features[i, :, 1].detach(), consumption_forecasts[i].detach(), targets[i].detach(), timestamps[i].detach())
-        running_test_loss.append(test_loss.item())
+
+    with torch.no_grad():
+        for features, temperature_forecasts, targets, timestamps in test_data_loader:
+            consumption_forecasts = n_in_one_out(model, features, temperature_forecasts, targets)
+            test_loss = loss_function(consumption_forecasts, targets)
+            for i in range(len(features)):
+                # TODO remove fixed values
+                forecast_visualizer.add_datapoint(features[i, :, 1].detach(), consumption_forecasts[i].detach(), targets[i].detach(), timestamps[i].detach())
+            running_test_loss.append(test_loss.item())
 
     print(f"Test Loss: {np.mean(running_test_loss)}")
+
+def compare_models(test_data_loader, compare_filenames):
+    print("\033[1;32m" + "="*15 + " Comparing " + "="*15 + "\033[0m")
+    metrics_results = {}
+
+    for filename, model_class in compare_filenames:
+        model_load_path = os.path.join(os.path.dirname(__file__), "saved_models", model_class.__name__, filename)
+        if not os.path.exists(model_load_path):
+            print(f"Model file {model_load_path} not found.")
+            continue
+
+        model = model_class(num_features=2, sequence_length=global_config["sequence_length"])
+        model.load_state_dict(torch.load(model_load_path))
+        model.eval()
+
+        with torch.no_grad():
+            all_predictions = []
+            all_targets = []
+            for features, temperature_forecasts, targets, _ in test_data_loader:
+                consumption_forecasts = n_in_one_out(model, features, temperature_forecasts, targets)
+                all_predictions.append(consumption_forecasts)
+                all_targets.append(targets)
+
+            # Concatenate all batch predictions and targets
+            all_predictions = torch.cat(all_predictions, dim=0)
+            all_targets = torch.cat(all_targets, dim=0)
+
+            rmse = torch.sqrt(torch.nn.functional.mse_loss(all_predictions, all_targets))
+            mae = torch.nn.functional.l1_loss(all_predictions, all_targets)
+            mape = torch.mean(torch.abs((all_predictions - all_targets) / all_targets)) * 100
+
+        metrics_results[model_class.__name__] = {
+            "RMSE": rmse.item(),
+            "MAE": mae.item(),
+            "MAPE": mape.item()
+        }
+
+    return metrics_results
+
 
 def main():
     model, optimizer, loss_function, train_data_loader, validation_data_loader, test_data_loader, nn_config = setup()
     training_visualizer = TrainingVisualizer()
     forecast_visualizer = ForecastVisualizer()
+    evaluation_visualizer = EvaluationVisualizer()
 
     if global_config["train"]:
         train(model, optimizer, loss_function, train_data_loader, validation_data_loader, nn_config["epochs"], training_visualizer, global_config["save_model"])
@@ -198,6 +242,10 @@ def main():
         if global_config["test"]:
             forecast_visualizer.plot_consumption_forecast()
             forecast_visualizer.plot_error_statistics()
+
+    if global_config["compare"]:
+        metrics_result = compare_models(test_data_loader, global_config["compare_filenames"])
+        evaluation_visualizer.plot_summary(metrics_result)
 
 
 if __name__ == "__main__":

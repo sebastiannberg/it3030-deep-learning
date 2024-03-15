@@ -84,3 +84,28 @@ class ForecastVisualizer:
         plt.plot(std_errors, label="Standard Deviation", color="green")
         plt.legend()
         plt.show()
+
+class EvaluationVisualizer:
+
+    def plot_summary(self, metrics_result):
+        metrics = ["RMSE", "MAE", "MAPE"]
+        data = {model: (metrics_result[model][metric] for metric in metrics_result[model].keys()) for model in metrics_result.keys()}
+
+        x = np.arange(len(metrics))
+        bar_width = 0.25
+        multiplier = 0
+
+        fig, ax = plt.subplots(layout="constrained")
+
+        for attribute, measurement in data.items():
+            offset = bar_width * multiplier
+            rects = ax.bar(x + offset, measurement, bar_width, label=attribute)
+            ax.bar_label(rects, padding=3)
+            multiplier += 1
+
+        ax.set_ylabel("Score")
+        ax.set_title("Evaluation Summary")
+        ax.set_xticks(x + bar_width, metrics)
+        ax.legend(loc='upper left')
+
+        plt.show()
