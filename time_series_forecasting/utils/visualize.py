@@ -91,23 +91,29 @@ class EvaluationVisualizer:
 
     def plot_summary(self, metrics_result):
         metrics = ["RMSE", "MAE", "MAPE"]
-        data = {model: (metrics_result[model][metric] for metric in metrics_result[model].keys()) for model in metrics_result.keys()}
 
-        x = np.arange(len(metrics))
-        bar_width = 0.25
-        multiplier = 0
+        # Initialize a figure and axis for plotting
+        fig, ax = plt.subplots()
+        bar_width = 0.25  # Width of the bars
+        n_metrics = len(metrics)
+        n_models = len(metrics_result)
 
-        fig, ax = plt.subplots(layout="constrained")
+        # Setting up positions for the bars
+        positions = np.arange(n_metrics)
 
-        for attribute, measurement in data.items():
-            offset = bar_width * multiplier
-            rects = ax.bar(x + offset, measurement, bar_width, label=attribute)
-            ax.bar_label(rects, padding=3)
-            multiplier += 1
+        for i, (model, results) in enumerate(metrics_result.items()):
+            # Extracting the metrics in order
+            measurements = [results[metric] for metric in metrics]
+            # Calculating the position for each model's bars
+            offset = (i - n_models / 2) * bar_width + bar_width / 2
+            # Plotting
+            rects = ax.bar(positions + offset, measurements, bar_width, label=model)
 
-        ax.set_ylabel("Score")
-        ax.set_title("Evaluation Summary")
-        ax.set_xticks(x + bar_width, metrics)
-        ax.legend(loc='upper left')
+        ax.set_xlabel("Metrics")
+        ax.set_ylabel("Scores")
+        ax.set_title("Model Comparison")
+        ax.set_xticks(positions)
+        ax.set_xticklabels(metrics)
+        ax.legend()
 
         plt.show()

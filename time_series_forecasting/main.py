@@ -220,7 +220,6 @@ def test(model, loss_function, test_data_loader, forecast_visualizer, preprocess
             for i in range(len(features)):
                 # TODO remove fixed values
                 historical_consumption = features[i, :, 1]
-                print(historical_consumption.size())
                 historical_consumption_reversed = preprocessor.reverse_standardize_targets(historical_consumption)
                 forecast_visualizer.add_datapoint(historical_consumption_reversed, consumption_forecasts_reversed[i], targets_reversed[i], timestamps[i])
             running_test_loss.append(test_loss.item())
