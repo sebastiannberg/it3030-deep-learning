@@ -94,8 +94,8 @@ def setup(preprocessor: Preprocessor, feature_engineering: FeatureEngineering):
         raise ValueError(f"{global_config['model']} in global config is not valid")
 
     # Instantiate model and optimizer
-    # TODO num_features not fixed
-    model = nn_config["model"](num_features=2, sequence_length=global_config["sequence_length"])
+    num_features = len(selected_features) - 1
+    model = nn_config["model"](num_features=num_features, sequence_length=global_config["sequence_length"])
     optimizer = nn_config["optimizer"](model.parameters(), lr=nn_config["lr"])
     loss_function = nn_config["loss_function"]()
     print(f"Model: {model.__class__.__name__}")
@@ -112,14 +112,18 @@ def setup(preprocessor: Preprocessor, feature_engineering: FeatureEngineering):
 
     return model, optimizer, loss_function, train_data_loader, validation_data_loader, test_data_loader, nn_config
 
-def n_in_one_out(model, features, temperature_forecasts, targets):
+def n_in_one_out(model, features, forecast_features, targets):
+    """
+    Consumption are always first column, and temperature are always second column
+    """
     # Instantiate consumption_forecasts tensor for minibatch
     consumption_forecasts = torch.zeros(targets.size())
 
-    # Add a row with forecast values (temp_forecast_i+1, 0)
-    forecast_row = torch.zeros(32, 1, 2)
-    forecast_row[:, :, 0] = temperature_forecasts[:, 0, :]
-    features = torch.cat((features, forecast_row), dim=1)
+    # Add a row with forecast value
+    # forecast_row = torch.zeros(features.size()[0], 1, features.size()[2])
+    # forecast_row[:, :, 1] = temperature_forecasts[:, 0, :]
+    # features = torch.cat((features, forecast_row), dim=1)
+
     initial_consumption_forecast = model(features)
     consumption_forecasts[:, 0] = initial_consumption_forecast[:, 0]
 
@@ -129,40 +133,40 @@ def n_in_one_out(model, features, temperature_forecasts, targets):
         features = features[:, 1:, :]
 
         # Remove previous forecast rows
-        features = features[:, :-1, :]
+        # features = features[:, :-1, :]
 
         # Create row for current timestep
-        current_timestep_row = torch.zeros(32, 1, 2)
-        # Current timestep temperature is previous timestep forecast
-        current_timestep_row[:, :, 0] = temperature_forecasts[:, i-1, :]
+        current_timestep_row = torch.zeros(features.size()[0], 1, features.size()[2])
         # Current timestep consumption is previous consumption prediction
         previous_prediction = consumption_forecasts[:, i-1].reshape(-1, 1)
-        current_timestep_row[:, :, 1] = previous_prediction[:, :]
+        current_timestep_row[:, :, 0] = previous_prediction[:, :]
+
+        # Current timestep temperature is previous timestep forecast
+        current_timestep_row[:, :, 1:] = forecast_features[:, i-1, :].unsqueeze(1)
         # Add current timestep to features (now size is (sequence_length, features))
         features = torch.cat((features, current_timestep_row), dim=1)
 
-        # Add a row with forecast values (temp_forecast_i, 0)
-        forecast_row = torch.zeros(32, 1, 2)
-        forecast_row[:, :, 0] = temperature_forecasts[:, i, :]
-        # Size is now (sequence_length + 1, features)
-        features = torch.cat((features, forecast_row), dim=1)
+        # Add a row with forecast values
+        # forecast_row = torch.zeros(32, 1, 2)
+        # forecast_row[:, :, 0] = temperature_forecasts[:, i, :]
+        # # Size is now (sequence_length + 1, features)
+        # features = torch.cat((features, forecast_row), dim=1)
 
         # Get consumption forecast for next timestep
         consumption_forecast = model(features)
         # Add to consumption_forecasts tensor
         consumption_forecasts[:, i] = consumption_forecast[:, 0]
-
     return consumption_forecasts
 
 def train_one_epoch(model, optimizer, loss_function, train_data_loader, training_visualizer, preprocessor: Preprocessor):
     running_loss = []
 
-    for features, temperature_forecasts, targets, _ in train_data_loader:
+    for features, forecast_features, targets, _ in train_data_loader:
         # Zeroing gradients for each minibatch
         optimizer.zero_grad()
 
         # Perform n in, 1 out
-        consumption_forecasts = n_in_one_out(model, features, temperature_forecasts, targets)
+        consumption_forecasts = n_in_one_out(model, features, forecast_features, targets)
 
         consumption_forecasts_reversed = preprocessor.reverse_standardize_targets(consumption_forecasts)
         targets_reversed = preprocessor.reverse_standardize_targets(targets)
@@ -192,8 +196,8 @@ def train(model, optimizer, loss_function, train_data_loader, validation_data_lo
         running_validation_loss = []
 
         with torch.no_grad():
-            for features, temperature_forecasts, targets, _ in validation_data_loader:
-                consumption_forecasts = n_in_one_out(model, features, temperature_forecasts, targets)
+            for features, forecast_features, targets, _ in validation_data_loader:
+                consumption_forecasts = n_in_one_out(model, features, forecast_features, targets)
                 consumption_forecasts_reversed = preprocessor.reverse_standardize_targets(consumption_forecasts)
                 targets_reversed = preprocessor.reverse_standardize_targets(targets)
                 validation_loss = loss_function(consumption_forecasts_reversed, targets_reversed)
@@ -223,14 +227,14 @@ def test(model, loss_function, test_data_loader, forecast_visualizer, preprocess
     running_test_loss = []
 
     with torch.no_grad():
-        for features, temperature_forecasts, targets, timestamps in test_data_loader:
-            consumption_forecasts = n_in_one_out(model, features, temperature_forecasts, targets)
+        for features, forecast_features, targets, timestamps in test_data_loader:
+            consumption_forecasts = n_in_one_out(model, features, forecast_features, targets)
             consumption_forecasts_reversed = preprocessor.reverse_standardize_targets(consumption_forecasts)
             targets_reversed = preprocessor.reverse_standardize_targets(targets)
             test_loss = loss_function(consumption_forecasts_reversed, targets_reversed)
             for i in range(len(features)):
                 # TODO remove fixed values
-                historical_consumption = features[i, :, 1]
+                historical_consumption = features[i, :, 0]
                 historical_consumption_reversed = preprocessor.reverse_standardize_targets(historical_consumption)
                 forecast_visualizer.add_datapoint(historical_consumption_reversed, consumption_forecasts_reversed[i], targets_reversed[i], timestamps[i])
             running_test_loss.append(test_loss.item())

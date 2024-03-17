@@ -20,12 +20,14 @@ class PowerConsumptionDataset(Dataset):
         end_sequence_idx = idx + self.sequence_length
         end_forecast_idx = end_sequence_idx + self.forecast_horizon
 
-        features_df = self.data.drop(columns=["timestamp"])
-        features_df = features_df.iloc[start_idx:end_sequence_idx]
+        # Assemble features
+        feature_columns = [self.target_column, self.temperature_column] + [col for col in self.data.columns if col not in ["timestamp", self.target_column, self.temperature_column]]
+        features_df = self.data[feature_columns].iloc[start_idx:end_sequence_idx]
         features = features_df.to_numpy(dtype=np.float32)
 
-        # Forecast proxy temperatures for the forecast horizon
-        forecast_proxy_temps = self.data[self.temperature_column].iloc[end_sequence_idx:end_forecast_idx].to_numpy(dtype=np.float32).reshape(-1, 1)
+        # Forecast features for the forecast horizon
+        forecast_columns = [self.temperature_column] + [col for col in self.data.columns if col not in ["timestamp", self.target_column, self.temperature_column]]
+        forecast_features = self.data[forecast_columns].iloc[end_sequence_idx:end_forecast_idx].to_numpy(dtype=np.float32)
 
         # Fetch the forecast horizon of target values immediately following the historical sequence
         targets = self.data[self.target_column].iloc[end_sequence_idx:end_forecast_idx].to_numpy(dtype=np.float32)
@@ -35,4 +37,4 @@ class PowerConsumptionDataset(Dataset):
         # Convert timestamps to Unix epoch time (seconds) as int64
         timestamps_in_seconds = timestamps.astype('datetime64[s]').view('int64')
 
-        return torch.from_numpy(features), torch.from_numpy(forecast_proxy_temps), torch.from_numpy(targets), timestamps_in_seconds
+        return torch.from_numpy(features), torch.from_numpy(forecast_features), torch.from_numpy(targets), timestamps_in_seconds
