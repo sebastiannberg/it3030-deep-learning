@@ -5,13 +5,12 @@ import numpy as np
 
 class PowerConsumptionDataset(Dataset):
 
-    def __init__(self, data, sequence_length=24, forecast_horizon=24, bidding_area="NO1"):
+    def __init__(self, data, sequence_length=24, forecast_horizon=24, target_column="NO1_consumption", temperature_column="NO1_temperature"):
         self.data = data
         self.sequence_length = sequence_length
         self.forecast_horizon = forecast_horizon
-        self.bidding_area = bidding_area
-        self.temperature_col = f"{bidding_area}_temperature"
-        self.consumption_col = f"{bidding_area}_consumption"
+        self.target_column = target_column
+        self.temperature_column = temperature_column
 
     def __len__(self):
         return len(self.data) - self.sequence_length - self.forecast_horizon - 1
@@ -21,16 +20,15 @@ class PowerConsumptionDataset(Dataset):
         end_sequence_idx = idx + self.sequence_length
         end_forecast_idx = end_sequence_idx + self.forecast_horizon
 
-        historical_temps = self.data[self.temperature_col].iloc[start_idx:end_sequence_idx].to_numpy(dtype=np.float32)
-        historical_consumption = self.data[self.consumption_col].iloc[start_idx:end_sequence_idx].to_numpy(dtype=np.float32)
-        # Features stacked horizontally (time steps x features)
-        features = np.hstack([historical_temps.reshape(-1, 1), historical_consumption.reshape(-1, 1)])
+        features_df = self.data.drop(columns=["timestamp"])
+        features_df = features_df.iloc[start_idx:end_sequence_idx]
+        features = features_df.to_numpy(dtype=np.float32)
 
-        # Forecast proxy temperatures fore the forecast horizon
-        forecast_proxy_temps = self.data[self.temperature_col].iloc[end_sequence_idx:end_forecast_idx].to_numpy(dtype=np.float32).reshape(-1, 1)
+        # Forecast proxy temperatures for the forecast horizon
+        forecast_proxy_temps = self.data[self.temperature_column].iloc[end_sequence_idx:end_forecast_idx].to_numpy(dtype=np.float32).reshape(-1, 1)
 
         # Fetch the forecast horizon of target values immediately following the historical sequence
-        targets = self.data[self.consumption_col].iloc[end_sequence_idx:end_forecast_idx].to_numpy(dtype=np.float32)
+        targets = self.data[self.target_column].iloc[end_sequence_idx:end_forecast_idx].to_numpy(dtype=np.float32)
 
         # Retreive all timestamps to be used for forecasting plots
         timestamps = self.data["timestamp"].iloc[start_idx:end_forecast_idx].to_numpy(dtype=np.datetime64)

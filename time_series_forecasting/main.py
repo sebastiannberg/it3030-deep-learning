@@ -8,12 +8,13 @@ import os
 
 from config import global_config, cnn_config
 from data.datasets import PowerConsumptionDataset
+from data.feature_engineering import FeatureEngineering
 from data.preprocessing import Preprocessor
 from utils.visualize import TrainingVisualizer, ForecastVisualizer, EvaluationVisualizer
 from models.cnn_forecasting_model import CNNForecastingModel
 
 
-def setup(preprocessor: Preprocessor):
+def setup(preprocessor: Preprocessor, feature_engineering: FeatureEngineering):
     """
     Setup selected model and create datasets based on the configuration file
     """
@@ -24,6 +25,14 @@ def setup(preprocessor: Preprocessor):
     print(f"Loading data from {dataset_path}")
     df = pd.read_csv(dataset_path)
 
+    # Feature engineering
+    df = feature_engineering.add_features(df)
+
+    # Feature selection
+    bidding_area = global_config["bidding_area"]
+    selected_features = ["timestamp", f"{bidding_area}_consumption", f"{bidding_area}_temperature", "christmas_eve"]
+    df = feature_engineering.select_features(df, features=selected_features)
+
     # Split dataset into training, validation and test
     train_size = int(0.7 * len(df))
     validation_size = int(0.1 * len(df))
@@ -31,41 +40,43 @@ def setup(preprocessor: Preprocessor):
     validation_df = df[train_size:(train_size + validation_size)]
     test_df = df[(train_size + validation_size):]
 
-    # Feature engineering
-
     # Preprocessing
-    # Fitting params to training data
+    features_to_preprocess = [f"{bidding_area}_consumption", f"{bidding_area}_temperature"]
     print("Preprocessing training data")
-    # Applying spike removal before standardization, because it would be affected by missing values
-    train_df = preprocessor.remove_spikes(train_df, fit=True)
+    # Applying spike removal before standardization, because standardization would be affected by missing values
+    # Fitting params to training data
+    train_df = preprocessor.remove_spikes(train_df, features=features_to_preprocess, fit=True)
     # Using Z-score standardization because data is approximately normally distributed
     # Results in range of mean around 0 and standard deviation of 1
-    train_df = preprocessor.standardize(train_df, fit=True)
+    train_df = preprocessor.standardize(train_df, features=features_to_preprocess, fit=True)
     print("Preprocessing validation data")
-    validation_df = preprocessor.remove_spikes(validation_df)
-    validation_df = preprocessor.standardize(validation_df)
+    validation_df = preprocessor.remove_spikes(validation_df, features=features_to_preprocess)
+    validation_df = preprocessor.standardize(validation_df, features=features_to_preprocess)
     print("Preprocessing test data")
-    test_df = preprocessor.remove_spikes(test_df)
-    test_df = preprocessor.standardize(test_df)
+    test_df = preprocessor.remove_spikes(test_df, features=features_to_preprocess)
+    test_df = preprocessor.standardize(test_df, features=features_to_preprocess)
 
     # Create datasets
     train_dataset = PowerConsumptionDataset(
         data=train_df,
         sequence_length=global_config["sequence_length"],
         forecast_horizon=global_config["forecast_horizon"],
-        bidding_area=global_config["bidding_area"],
+        target_column=f"{bidding_area}_consumption",
+        temperature_column=f"{bidding_area}_temperature"
     )
     validation_dataset = PowerConsumptionDataset(
         data=validation_df,
         sequence_length=global_config["sequence_length"],
         forecast_horizon=global_config["forecast_horizon"],
-        bidding_area=global_config["bidding_area"],
+        target_column=f"{bidding_area}_consumption",
+        temperature_column=f"{bidding_area}_temperature"
     )
     test_dataset = PowerConsumptionDataset(
         data=test_df,
         sequence_length=global_config["sequence_length"],
         forecast_horizon=global_config["forecast_horizon"],
-        bidding_area=global_config["bidding_area"],
+        target_column=f"{bidding_area}_consumption",
+        temperature_column=f"{bidding_area}_temperature"
     )
 
     train_data_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, drop_last=True)
@@ -230,7 +241,7 @@ def compare_models(test_data_loader, compare_filenames, preprocessor: Preprocess
     print("\033[1;32m" + "="*15 + " Comparing " + "="*15 + "\033[0m")
     metrics_results = {}
 
-    for filename, model_class in compare_filenames:
+    for i, (filename, model_class) in enumerate(compare_filenames):
         model_load_path = os.path.join(os.path.dirname(__file__), "saved_models", model_class.__name__, filename)
         if not os.path.exists(model_load_path):
             print(f"Model file {model_load_path} not found.")
@@ -258,7 +269,7 @@ def compare_models(test_data_loader, compare_filenames, preprocessor: Preprocess
             mae = torch.nn.functional.l1_loss(all_predictions, all_targets)
             mape = torch.mean(torch.abs((all_predictions - all_targets) / all_targets)) * 100
 
-        metrics_results[model_class.__name__] = {
+        metrics_results[f"{i+1}. {model_class.__name__}"] = {
             "RMSE": rmse.item(),
             "MAE": mae.item(),
             "MAPE": mape.item()
@@ -269,8 +280,9 @@ def compare_models(test_data_loader, compare_filenames, preprocessor: Preprocess
 
 def main():
     preprocessor = Preprocessor()
+    feature_engineering = FeatureEngineering()
 
-    model, optimizer, loss_function, train_data_loader, validation_data_loader, test_data_loader, nn_config = setup(preprocessor)
+    model, optimizer, loss_function, train_data_loader, validation_data_loader, test_data_loader, nn_config = setup(preprocessor, feature_engineering)
     training_visualizer = TrainingVisualizer()
     forecast_visualizer = ForecastVisualizer()
     evaluation_visualizer = EvaluationVisualizer()
