@@ -20,15 +20,17 @@ class TrainingVisualizer:
         plt.title("Learning Progression")
         plt.xlabel("Minibatch")
         plt.ylabel("Loss")
-        plt.plot(np.array(self.minibatches), label="Train", color="blue")
+        minibatch_x_values = np.arange(1, len(self.minibatches) + 1)
+        plt.plot(minibatch_x_values, np.array(self.minibatches), label="Train", color="blue")
         plt.legend()
 
         plt.figure()
         plt.title("Learning Progression")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
-        plt.plot(np.array([loss[0] for loss in self.epochs]), label="Train", color="blue")
-        plt.plot(np.array([loss[1] for loss in self.epochs]), label="Validation", color="orange")
+        epoch_x_values = np.arange(1, len(self.epochs) + 1)
+        plt.plot(epoch_x_values, np.array([loss[0] for loss in self.epochs]), label="Train", color="blue")
+        plt.plot(epoch_x_values, np.array([loss[1] for loss in self.epochs]), label="Validation", color="orange")
         plt.legend()
 
         plt.show()
@@ -39,7 +41,7 @@ class ForecastVisualizer:
         self.data = []
 
     def add_datapoint(self, historical_consumption, consumption_forecasts, targets, timestamps):
-        self.data.append((historical_consumption.numpy(), consumption_forecasts.numpy(), targets.numpy(), timestamps.numpy()))
+        self.data.append((historical_consumption, consumption_forecasts, targets, timestamps))
 
     def plot_consumption_forecast(self, indexes=(0, 27, 124, 578)):
         for i in indexes:
