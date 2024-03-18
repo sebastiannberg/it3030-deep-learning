@@ -7,129 +7,189 @@ from datetime import datetime
 import os
 from typing import Dict
 
-from config import global_config, cnn_config
+from config import global_config
 from data.datasets import PowerConsumptionDataset
-from data.feature_engineering import FeatureEngineering
 from data.preprocessing import Preprocessor
+from data.feature_engineering import FeatureEngineering
 from utils.visualize import TrainingVisualizer, ForecastVisualizer, EvaluationVisualizer
-from models.cnn_forecasting_model import CNNForecastingModel
 
 class ModelController:
 
-    def __init__(self, config: Dict) -> None:
-        pass
+    def __init__(self, global_config: Dict) -> None:
+        self.global_config = global_config
+        self.preprocessor = Preprocessor()
+        self.feature_engineering = FeatureEngineering()
+        if self.global_config["visualize"]:
+            self.training_visualizer = TrainingVisualizer()
+            self.forecast_visualizer = ForecastVisualizer()
+            self.evaluation_visualizer = EvaluationVisualizer()
+        self.setup()
 
     def setup(self):
+        """
+        Setup selected model and create datasets based on the configuration file
+        """
+        print("\033[1;32m" + "="*15 + " Setup " + "="*15 + "\033[0m")
+        # Load data
+        dataset_path = os.path.join(os.path.dirname(__file__), "data", "raw", self.global_config["csv_filename"])
+        print(f"Loading data from {dataset_path}")
+        df = pd.read_csv(dataset_path)
+        df.interpolate(method='polynomial', order=2, inplace=True, limit_direction='both')
+
+        print(f"Model: {self.global_config['model'].__name__}")
+        print(f"Visualize: {self.global_config['visualize']}")
+
+        # Ensure only one mode is enabled
+        enabled_modes_count = sum([self.global_config["TRAIN"]["enabled"], self.global_config["LOAD"]["enabled"], self.global_config["COMPARE"]["enabled"]])
+        if enabled_modes_count != 1:
+            raise ValueError("Exactly one mode should be enabled in global_config.")
+
+        # Determine the selected mode
+        if self.global_config["TRAIN"]["enabled"]:
+            mode = "train"
+        elif self.global_config["LOAD"]["enabled"]:
+            mode = "load"
+        elif self.global_config["COMPARE"]["enabled"]:
+            mode = "compare"
+        print(f"Selected mode: {mode.upper()}")
+
+        if mode == "train":
+            self.setup_train(df)
+        elif mode == "load":
+            self.setup_load()
+        elif mode == "compare" :
+            self.setup_compare()
+
+    def setup_train(self, df):
+        train_config = self.global_config["TRAIN"]
+        print(f"Sequence length: {train_config['sequence_length']}")
+        print(f"Forecast horizon: {train_config['forecast_horizon']}")
+        print(f"Training on bidding area {train_config['bidding_area']}")
+
+        # Feature engineering
+        df, added_features = self.feature_engineering.add_features(df, train_config["bidding_area"])
+        print(f"Feature engineering added features {added_features}")
+
+        # Feature selection
+        sequence_features = [f"{train_config['bidding_area']}_consumption", f"{train_config['bidding_area']}_temperature", "hour_sin", "weekday_cos"]
+        forecast_features = [f"{train_config['bidding_area']}_temperature", "hour_sin"]
+        features_to_preprocess = [f"{train_config['bidding_area']}_consumption", f"{train_config['bidding_area']}_temperature"]
+        print(f"Selected sequence features: {sequence_features}")
+        print(f"Selected forecast features: {forecast_features}")
+        print(f"Features queued for preprocessing: {features_to_preprocess}")
+
+        # Split dataframe into training, validation and test
+        train_size = int(0.7 * len(df))
+        validation_size = int(0.1 * len(df))
+        train_df = df[:train_size]
+        validation_df = df[train_size:(train_size + validation_size)]
+        test_df = df[(train_size + validation_size):]
+        print(f"Split dataframe into train, validation and test: {len(train_df), len(validation_df), len(test_df)}")
+
+        # Preprocessing
+        print("Preprocessing training data")
+        # Applying spike removal before standardization, because standardization would be affected by missing values
+        # Fitting params to training data
+        train_df = self.preprocessor.remove_spikes(train_df, features=features_to_preprocess, fit=True)
+        # Using Z-score standardization because data is approximately normally distributed
+        # Results in range of mean around 0 and standard deviation of 1
+        train_df = self.preprocessor.standardize(train_df, features=features_to_preprocess, fit=True)
+
+        print("Preprocessing validation data")
+        validation_df = self.preprocessor.remove_spikes(validation_df, features=features_to_preprocess)
+        validation_df = self.preprocessor.standardize(validation_df, features=features_to_preprocess)
+
+        print("Preprocessing test data")
+        test_df = self.preprocessor.remove_spikes(test_df, features=features_to_preprocess)
+        test_df = self.preprocessor.standardize(test_df, features=features_to_preprocess)
+
+        # Create datasets
+        print("Creating datasets")
+        target_column = f"{train_config['bidding_area']}_consumption"
+        print(f"Target column: {target_column}")
+        train_dataset = PowerConsumptionDataset(
+            data=train_df,
+            sequence_length=train_config["sequence_length"],
+            forecast_horizon=train_config["forecast_horizon"],
+            target_column=target_column,
+            sequence_features=sequence_features,
+            forecast_features=forecast_features
+        )
+        validation_dataset = PowerConsumptionDataset(
+            data=validation_df,
+            sequence_length=train_config["sequence_length"],
+            forecast_horizon=train_config["forecast_horizon"],
+            target_column=target_column,
+            sequence_features=sequence_features,
+            forecast_features=forecast_features
+        )
+        test_dataset = PowerConsumptionDataset(
+            data=test_df,
+            sequence_length=train_config["sequence_length"],
+            forecast_horizon=train_config["forecast_horizon"],
+            target_column=target_column,
+            sequence_features=sequence_features,
+            forecast_features=forecast_features
+        )
+        print(f"Train dataset created with {len(train_dataset)} samples from bidding area {train_config['bidding_area']}")
+        print(f"Validation dataset created with {len(validation_dataset)} samples from bidding area {train_config['bidding_area']}")
+        print(f"Test dataset created with {len(test_dataset)} samples from bidding area {train_config['bidding_area']}")
+
+        feature_indices_train = train_dataset.feature_indices
+        feature_indices_validation = train_dataset.feature_indices
+        feature_indices_test = train_dataset.feature_indices
+        if feature_indices_train and feature_indices_validation and feature_indices_test:
+            print("Retreived feature indices for input tensors")
+
+        train_data_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, drop_last=True)
+        validation_data_loader = DataLoader(validation_dataset, batch_size=32, shuffle=False, drop_last=True)
+        test_data_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, drop_last=True)
+        if train_data_loader and validation_data_loader and test_data_loader:
+            print("Instantiated data loaders")
+
+        # Instantiate model and optimizer
+        num_features = len(sequence_features)
+        model = self.global_config["model"](num_features=num_features, sequence_length=train_config["sequence_length"])
+        optimizer = train_config["optimizer"](model.parameters(), lr=train_config["lr"])
+        loss_function = train_config["loss_function"]()
+        print(f"Model: {model.__class__.__name__}")
+        print(f"Optimizer: {optimizer.__class__.__name__}")
+        print(f"Loss Function: {loss_function.__class__.__name__}")
+
+    def setup_load(self):
+        # TODO setup data, load prerpocessing params, load feature engineering and feature selection
+        # load_config = self.global_config["LOAD"]
+        # model_load_path = os.path.join(os.path.dirname(__file__), "saved_models", self.global_config["model"].__name__, load_config["load_model_filename"])
+        # if os.path.exists(model_load_path):
+        #     print("Todo")
+        #     print(f"Model loaded from {model_load_path}")
+        # else:
+        #     raise FileNotFoundError(f"No model found at {model_load_path}")
         pass
 
+    def setup_compare(self):
+        # TODO setup data, load preprocessing params, load feature engineering and feature selection
+        # metrics_result = compare_models(test_data_loader, feature_indices, global_config["compare_filenames"], preprocessor)
+        # print(metrics_result)
+        # evaluation_visualizer.plot_summary(metrics_result)
+        pass
 
-def setup(preprocessor: Preprocessor, feature_engineering: FeatureEngineering):
-    """
-    Setup selected model and create datasets based on the configuration file
-    """
-    print("\033[1;32m" + "="*15 + " Setup " + "="*15 + "\033[0m")
+    def run(self):
+        if self.mode == "train":
+            self.run_train()
+        elif self.mode == "load":
+            self.run_load()
+        elif self.mode == "compare":
+            self.run_compare()
 
-    # Load data
-    dataset_path = os.path.join(os.path.dirname(__file__), "data", "raw", global_config["csv_filename"])
-    print(f"Loading data from {dataset_path}")
-    df = pd.read_csv(dataset_path)
-    bidding_area = global_config["bidding_area"]
-    df.interpolate(method='polynomial', order=2, inplace=True, limit_direction='both')
+    def run_train():
+        pass
 
-    # Feature engineering
-    df = feature_engineering.add_features(df, bidding_area)
+    def run_load():
+        pass
 
-    # Feature selection
-    sequence_features = [f"{bidding_area}_consumption", f"{bidding_area}_temperature", "hour_sin", "weekday_cos"]
-    forecast_features = [f"{bidding_area}_temperature", "hour_sin"]
-    features_to_preprocess = [f"{bidding_area}_consumption", f"{bidding_area}_temperature"]
-
-    # Split dataset into training, validation and test
-    train_size = int(0.7 * len(df))
-    validation_size = int(0.1 * len(df))
-    train_df = df[:train_size]
-    validation_df = df[train_size:(train_size + validation_size)]
-    test_df = df[(train_size + validation_size):]
-
-    # Preprocessing
-    print("Preprocessing training data")
-    # Applying spike removal before standardization, because standardization would be affected by missing values
-    # Fitting params to training data
-    train_df = preprocessor.remove_spikes(train_df, features=features_to_preprocess, fit=True)
-    # Using Z-score standardization because data is approximately normally distributed
-    # Results in range of mean around 0 and standard deviation of 1
-    train_df = preprocessor.standardize(train_df, features=features_to_preprocess, fit=True)
-    print("Preprocessing validation data")
-    validation_df = preprocessor.remove_spikes(validation_df, features=features_to_preprocess)
-    validation_df = preprocessor.standardize(validation_df, features=features_to_preprocess)
-    print("Preprocessing test data")
-    test_df = preprocessor.remove_spikes(test_df, features=features_to_preprocess)
-    test_df = preprocessor.standardize(test_df, features=features_to_preprocess)
-
-    # Create datasets
-    train_dataset = PowerConsumptionDataset(
-        data=train_df,
-        sequence_length=global_config["sequence_length"],
-        forecast_horizon=global_config["forecast_horizon"],
-        target_column=f"{bidding_area}_consumption",
-        sequence_features=sequence_features,
-        forecast_features=forecast_features
-    )
-    validation_dataset = PowerConsumptionDataset(
-        data=validation_df,
-        sequence_length=global_config["sequence_length"],
-        forecast_horizon=global_config["forecast_horizon"],
-        target_column=f"{bidding_area}_consumption",
-        sequence_features=sequence_features,
-        forecast_features=forecast_features
-    )
-    test_dataset = PowerConsumptionDataset(
-        data=test_df,
-        sequence_length=global_config["sequence_length"],
-        forecast_horizon=global_config["forecast_horizon"],
-        target_column=f"{bidding_area}_consumption",
-        sequence_features=sequence_features,
-        forecast_features=forecast_features
-    )
-
-    feature_indices = None
-    if train_dataset:
-        feature_indices = train_dataset.feature_indices
-    elif test_dataset:
-        feature_indices = test_dataset.feature_indices
-
-    train_data_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, drop_last=True)
-    validation_data_loader = DataLoader(validation_dataset, batch_size=32, shuffle=False, drop_last=True)
-    test_data_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, drop_last=True)
-
-    print(f"Train dataset created with {len(train_dataset)} samples from bidding area {global_config['bidding_area']}")
-    print(f"Validation dataset created with {len(validation_dataset)} samples from bidding area {global_config['bidding_area']}")
-    print(f"Test dataset created with {len(test_dataset)} samples from bidding area {global_config['bidding_area']}")
-
-    # Set nn_config to correct model configuration
-    if global_config["model"] == CNNForecastingModel:
-        nn_config = cnn_config
-    else:
-        raise ValueError(f"{global_config['model']} in global config is not valid")
-
-    # Instantiate model and optimizer
-    num_features = len(sequence_features)
-    model = nn_config["model"](num_features=num_features, sequence_length=global_config["sequence_length"])
-    optimizer = nn_config["optimizer"](model.parameters(), lr=nn_config["lr"])
-    loss_function = nn_config["loss_function"]()
-    print(f"Model: {model.__class__.__name__}")
-    print(f"Optimizer: {optimizer.__class__.__name__}")
-    print(f"Loss Function: {loss_function.__class__.__name__}")
-
-    if global_config["load_model"]:
-        model_load_path = os.path.join(os.path.dirname(__file__), "saved_models", model.__class__.__name__, global_config["load_model_filename"])
-        if os.path.exists(model_load_path):
-            model.load_state_dict(torch.load(model_load_path))
-            print(f"Model loaded from {model_load_path}")
-        else:
-            raise FileNotFoundError(f"No model found at {model_load_path}")
-
-    return model, optimizer, loss_function, train_data_loader, validation_data_loader, test_data_loader, feature_indices, nn_config
+    def run_compare():
+        pass
 
 def n_in_one_out(model, sequence_features, forecast_features, targets, feature_indices):
     """
@@ -295,32 +355,10 @@ def compare_models(test_data_loader, feature_indices, compare_filenames, preproc
 
 
 def main():
-    preprocessor = Preprocessor()
-    feature_engineering = FeatureEngineering()
-
-    model, optimizer, loss_function, train_data_loader, validation_data_loader, test_data_loader, feature_indices, nn_config = setup(preprocessor, feature_engineering)
-    training_visualizer = TrainingVisualizer()
-    forecast_visualizer = ForecastVisualizer()
-    evaluation_visualizer = EvaluationVisualizer()
-
-    if global_config["train"]:
-        train(model, optimizer, loss_function, train_data_loader, validation_data_loader, feature_indices, nn_config["epochs"], training_visualizer, global_config["save_model"], preprocessor)
-
-    if global_config["test"]:
-        test(model, loss_function, test_data_loader, feature_indices, forecast_visualizer, preprocessor)
-
-    if global_config["visualize"]:
-        if global_config["train"]:
-            training_visualizer.plot_training_progress()
-        if global_config["test"]:
-            forecast_visualizer.plot_consumption_forecast()
-            forecast_visualizer.plot_error_statistics()
-
-    if global_config["compare"]:
-        metrics_result = compare_models(test_data_loader, feature_indices, global_config["compare_filenames"], preprocessor)
-        print(metrics_result)
-        evaluation_visualizer.plot_summary(metrics_result)
-
+    model_controller = ModelController(
+        global_config=global_config
+    )
+    model_controller.run()
 
 if __name__ == "__main__":
     main()

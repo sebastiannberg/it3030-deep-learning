@@ -42,6 +42,7 @@ class Preprocessor:
         return df_processed
 
     def standardize(self, df, features, fit=False):
+        print(f"Standardizing data (fit={fit})")
         standardized_df = df.copy()
         if fit:
             # Calculate mean and std
