@@ -17,7 +17,7 @@ global_config = {
     "test": True,
     # TODO implement test_using_all_data # Set train to False if used
     "visualize": True,
-    "compare": False,
+    "compare": True,
     "compare_filenames": (
         ("17-03-2024-164326_NO1_epoch_2.pt", CNNForecastingModel),
         ("17-03-2024-164326_NO1_epoch_2.pt", CNNForecastingModel),

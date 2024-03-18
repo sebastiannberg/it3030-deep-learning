@@ -37,7 +37,7 @@ class Preprocessor:
         # Fill holes created by spike removal wiht interpolation
         # Interpolate only the specified features
         for col in features:
-            df_processed[col].interpolate(method='linear', inplace=True, limit_direction='both')
+            df_processed[col].interpolate(method='polynomial', order=2, inplace=True, limit_direction='both')
 
         return df_processed
 
