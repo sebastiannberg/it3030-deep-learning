@@ -454,8 +454,10 @@ class ModelController:
 
     def train_one_epoch(self):
         running_loss = []
+        total_batches = len(self.train_data_loader)
 
-        for sequence_features, forecast_features, targets, _ in self.train_data_loader:
+        for batch_idx, (sequence_features, forecast_features, targets, _) in enumerate(self.train_data_loader):
+            print(f"\rBatch {batch_idx} of {total_batches}", end="")
             # Zeroing gradients for each minibatch
             self.optimizer.zero_grad()
 

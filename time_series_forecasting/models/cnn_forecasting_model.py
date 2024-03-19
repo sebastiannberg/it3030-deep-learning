@@ -26,4 +26,5 @@ class CNNForecastingModel(nn.Module):
         x = self.dropout(x)
         x = self.flatten(x)
         x = torch.relu(self.dense1(x))
-        return self.dense2(x)
+        x = self.dense2(x)
+        return x

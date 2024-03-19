@@ -2,15 +2,16 @@ import torch.nn as nn
 import torch.optim as optim
 
 from models.cnn_forecasting_model import CNNForecastingModel
+from models.rnn_forecasting_model import RNNForecastingModel
 
 
 global_config = {
     "csv_filename": "consumption_and_temperatures.csv",
-    "model": CNNForecastingModel,
+    "model": RNNForecastingModel,
     "visualize": True,
     # Enable only one of TRAIN, LOAD or COMPARE
     "TRAIN": {
-        "enabled": False,
+        "enabled": True,
         "bidding_area": "NO1",
         "sequence_length": 24,
         "forecast_horizon": 24,
@@ -27,7 +28,7 @@ global_config = {
         "test_bidding_area": "NO1"
     },
     "COMPARE": {
-        "enabled": True,
+        "enabled": False,
         "compare_filenames": (
             ("19-03-2024-150330_NO1_epoch_2.pt", CNNForecastingModel),
             ("19-03-2024-170009_NO1_epoch_2.pt", CNNForecastingModel),
