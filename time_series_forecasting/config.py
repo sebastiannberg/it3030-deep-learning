@@ -3,11 +3,12 @@ import torch.optim as optim
 
 from models.cnn_forecasting_model import CNNForecastingModel
 from models.rnn_forecasting_model import RNNForecastingModel
+from models.feed_forward_regression_model import FeedForwardRegressionModel
 
 
 global_config = {
     "csv_filename": "consumption_and_temperatures.csv",
-    "model": RNNForecastingModel,
+    "model": FeedForwardRegressionModel,
     "visualize": True,
     # Enable only one of TRAIN, LOAD or COMPARE
     "TRAIN": {
@@ -23,7 +24,7 @@ global_config = {
     },
     "LOAD": {
         "enabled": False,
-        "load_model_filename": "19-03-2024-150330_NO1_epoch_2.pt",
+        "load_model_filename": "19-03-2024-195822_NO1_epoch_2.pt",
         "test_using_all_data": False,
         "test_bidding_area": "NO1"
     },
@@ -31,7 +32,7 @@ global_config = {
         "enabled": False,
         "compare_filenames": (
             ("19-03-2024-150330_NO1_epoch_2.pt", CNNForecastingModel),
-            ("19-03-2024-170009_NO1_epoch_2.pt", CNNForecastingModel),
+            ("19-03-2024-195822_NO1_epoch_2.pt", RNNForecastingModel),
         ),
         "test_using_all_data": False,
         "test_bidding_area": "NO1"

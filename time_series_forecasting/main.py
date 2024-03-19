@@ -17,7 +17,7 @@ from utils.visualize import TrainingVisualizer, ForecastVisualizer, EvaluationVi
 
 class ModelController:
 
-    def __init__(self, global_config: Dict) -> None:
+    def __init__(self, global_config: Dict):
         self.global_config = global_config
         self.preprocessor = Preprocessor()
         self.feature_engineering = FeatureEngineering()
@@ -457,7 +457,7 @@ class ModelController:
         total_batches = len(self.train_data_loader)
 
         for batch_idx, (sequence_features, forecast_features, targets, _) in enumerate(self.train_data_loader):
-            print(f"\rBatch {batch_idx} of {total_batches}", end="")
+            print(f"\rBatch {batch_idx+1} of {total_batches}", end="")
             # Zeroing gradients for each minibatch
             self.optimizer.zero_grad()
 
@@ -475,7 +475,7 @@ class ModelController:
             # Gather data
             self.training_visualizer.add_minibatch_datapoint(loss.item())
             running_loss.append(loss.item())
-
+        print()
         return np.mean(running_loss)
 
     def n_in_one_out(self, sequence_features, forecast_features, targets, feature_indices, model=None, forecast_horizon=None):
