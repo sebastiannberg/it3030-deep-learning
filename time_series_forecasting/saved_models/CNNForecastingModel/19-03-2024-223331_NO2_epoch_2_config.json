@@ -1,0 +1,38 @@
+{
+  "sequence_length": 24,
+  "forecast_horizon": 24,
+  "num_features": 4,
+  "sequence_features": [
+    "NO2_consumption",
+    "NO2_temperature",
+    "hour_sin",
+    "weekday_cos"
+  ],
+  "forecast_features": [
+    "NO2_temperature",
+    "hour_sin",
+    "weekday_cos"
+  ],
+  "features_to_preprocess": [
+    "NO2_consumption",
+    "NO2_temperature"
+  ],
+  "learning_rate": 0.0001,
+  "loss_function": "torch.nn.L1Loss",
+  "preprocessing_params": [
+    {
+      "NO2_consumption": 444.1074765217499,
+      "NO2_temperature": 4.728024999999979
+    },
+    {
+      "NO2_consumption": {
+        "mean": 4175.3776712969775,
+        "std": 735.5955807804655
+      },
+      "NO2_temperature": {
+        "mean": 8.639090506147573,
+        "std": 6.003303378987614
+      }
+    }
+  ]
+}

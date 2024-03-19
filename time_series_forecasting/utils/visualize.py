@@ -43,7 +43,7 @@ class ForecastVisualizer:
     def add_datapoint(self, historical_consumption, consumption_forecasts, targets, timestamps):
         self.data.append((historical_consumption, consumption_forecasts, targets, timestamps))
 
-    def plot_consumption_forecast(self, indexes=(0, 27, 124, 578)):
+    def plot_consumption_forecast(self, indexes=(0, 24, 288, 504)):
         for i in indexes:
             historical_consumption, consumption_forecasts, targets, timestamps = self.data[i]
             # Convert seconds from epoch to datetime

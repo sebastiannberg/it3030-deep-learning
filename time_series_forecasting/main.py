@@ -438,12 +438,13 @@ class ModelController:
                     "sequence_features": self.selected_sequence_features,
                     "forecast_features": self.selected_forecast_features,
                     "features_to_preprocess": self.selected_features_to_preprocess,
+                    "learning_rate": self.train_config["lr"],
                     "loss_function": f"torch.nn.{self.loss_function.__class__.__name__}",
                     "preprocessing_params": self.preprocessor.get_params()
                 }
                 config_save_path = model_save_path.replace(".pt", "_config.json")
                 with open(config_save_path, 'w') as config_file:
-                    json.dump(config_to_save, config_file)
+                    json.dump(config_to_save, config_file, indent=2)
                 print(f"Configuration saved to {config_save_path}")
 
         end_time = time.time()
