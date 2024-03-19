@@ -64,7 +64,7 @@ class Preprocessor:
 
         return standardized_df
 
-    def reverse_standardize_targets(self, tensor: torch.Tensor):
+    def reverse_standardize_targets(self, tensor: torch.Tensor, bidding_area: str):
         # Tensor should be size (minibatch_size, forecast_horizon) eg. (32, 24)
         # Or else it should be (forecast_horizon) eg. (24)
         # Important: it should only be used for target feature eg. consumption
@@ -72,7 +72,7 @@ class Preprocessor:
             raise ValueError("Scaler parameters not initialized. Call standardize with fit=True first.")
 
         # TODO remove hard coded value
-        params = self.scaler_params["NO1_consumption"]
+        params = self.scaler_params[f"{bidding_area}_consumption"]
         mean = params['mean']
         std = params['std']
         # Reverse the standardization

@@ -62,16 +62,17 @@ class ModelController:
         self.train_config = self.global_config["TRAIN"]
         print(f"Sequence length: {self.train_config['sequence_length']}")
         print(f"Forecast horizon: {self.train_config['forecast_horizon']}")
-        print(f"Training on bidding area {self.train_config['bidding_area']}")
+        self.bidding_area = self.train_config["bidding_area"]
+        print(f"Training on bidding area {self.bidding_area}")
 
         # Feature engineering
-        df = self.feature_engineering.add_features(df, self.train_config["bidding_area"])
+        df = self.feature_engineering.add_features(df, self.bidding_area)
         print(f"Feature engineering added features {self.feature_engineering.get_added_features()}")
 
         # Feature selection
-        self.selected_sequence_features = [f"{self.train_config['bidding_area']}_consumption", f"{self.train_config['bidding_area']}_temperature", "hour_sin", "weekday_cos"]
-        self.selected_forecast_features = [f"{self.train_config['bidding_area']}_temperature", "hour_sin", "weekday_cos"]
-        self.selected_features_to_preprocess = [f"{self.train_config['bidding_area']}_consumption", f"{self.train_config['bidding_area']}_temperature"]
+        self.selected_sequence_features = [f"{self.bidding_area}_consumption", f"{self.bidding_area}_temperature", "hour_sin", "weekday_cos"]
+        self.selected_forecast_features = [f"{self.bidding_area}_temperature", "hour_sin", "weekday_cos"]
+        self.selected_features_to_preprocess = [f"{self.bidding_area}_consumption", f"{self.bidding_area}_temperature"]
         print(f"Selected sequence features: {self.selected_sequence_features}")
         print(f"Selected forecast features: {self.selected_forecast_features}")
         print(f"Features queued for preprocessing: {self.selected_features_to_preprocess}")
@@ -103,7 +104,7 @@ class ModelController:
 
         # Create datasets
         print("Creating datasets")
-        target_column = f"{self.train_config['bidding_area']}_consumption"
+        target_column = f"{self.bidding_area}_consumption"
         print(f"Target column: {target_column}")
         train_dataset = PowerConsumptionDataset(
             data=train_df,
@@ -129,9 +130,9 @@ class ModelController:
             sequence_features=self.selected_sequence_features,
             forecast_features=self.selected_forecast_features
         )
-        print(f"Train dataset created with {len(train_dataset)} samples from bidding area {self.train_config['bidding_area']}")
-        print(f"Validation dataset created with {len(validation_dataset)} samples from bidding area {self.train_config['bidding_area']}")
-        print(f"Test dataset created with {len(test_dataset)} samples from bidding area {self.train_config['bidding_area']}")
+        print(f"Train dataset created with {len(train_dataset)} samples from bidding area {self.bidding_area}")
+        print(f"Validation dataset created with {len(validation_dataset)} samples from bidding area {self.bidding_area}")
+        print(f"Test dataset created with {len(test_dataset)} samples from bidding area {self.bidding_area}")
 
         self.feature_indices_train = train_dataset.feature_indices
         self.feature_indices_validation = validation_dataset.feature_indices
@@ -158,10 +159,11 @@ class ModelController:
 
     def setup_load(self, df):
         self.load_config = self.global_config["LOAD"]
-        print(f"Bidding area used for testing {self.load_config['test_bidding_area']}")
+        self.bidding_area = self.load_config["test_bidding_area"]
+        print(f"Bidding area used for testing {self.bidding_area}")
 
         # Feature engineering
-        df = self.feature_engineering.add_features(df, self.load_config["test_bidding_area"])
+        df = self.feature_engineering.add_features(df, self.bidding_area)
         print(f"Feature engineering added features {self.feature_engineering.get_added_features()}")
 
         # Load preprocessing and feature configuration
@@ -179,7 +181,6 @@ class ModelController:
                 self.selected_features_to_preprocess = config["features_to_preprocess"]
                 self.loss_function = eval(config["loss_function"])()
                 preprocessing_params = config["preprocessing_params"]
-            self.preprocessor.set_params(preprocessing_params[0], preprocessing_params[1])
             print("Loaded preprocessing parameters and feature engineering configurations")
         else:
             raise FileNotFoundError(f"No configuration found at {config_path}")
@@ -191,8 +192,21 @@ class ModelController:
                 match = pattern.search(feature_name)
                 if match:
                     old_area = match.group()
-                    corrected_feature = feature_name.replace(old_area, self.load_config["test_bidding_area"])
+                    corrected_feature = feature_name.replace(old_area, self.bidding_area)
                     feature_list[i] = corrected_feature
+        for param in preprocessing_params:
+            new_param = {}
+            for key, value in param.items():
+                match = pattern.search(key)
+                if match:
+                    old_area = match.group()
+                    corrected_key = key.replace(old_area, self.bidding_area)
+                    new_param[corrected_key] = value
+                else:
+                    new_param[key] = value
+            param.clear()
+            param.update(new_param)
+
 
         # Feature selection
         print(f"Selected sequence features: {self.selected_sequence_features}")
@@ -213,13 +227,14 @@ class ModelController:
             print(f"Split dataframe into train, validation and test: {len(train_df), len(validation_df), len(test_df)}")
 
         # Preprocessing
+        self.preprocessor.set_params(preprocessing_params[0], preprocessing_params[1])
         print("Preprocessing test data")
         test_df = self.preprocessor.remove_spikes(test_df, features=self.selected_features_to_preprocess)
         test_df = self.preprocessor.standardize(test_df, features=self.selected_features_to_preprocess)
 
         # Create datasets
         print("Creating datasets")
-        target_column = f"{self.load_config['test_bidding_area']}_consumption"
+        target_column = f"{self.bidding_area}_consumption"
         print(f"Target column: {target_column}")
         test_dataset = PowerConsumptionDataset(
             data=test_df,
@@ -229,7 +244,7 @@ class ModelController:
             sequence_features=self.selected_sequence_features,
             forecast_features=self.selected_forecast_features
         )
-        print(f"Test dataset created with {len(test_dataset)} samples from bidding area {self.load_config['test_bidding_area']}")
+        print(f"Test dataset created with {len(test_dataset)} samples from bidding area {self.bidding_area}")
 
         self.feature_indices_test = test_dataset.feature_indices
         if self.feature_indices_test:
@@ -297,8 +312,8 @@ class ModelController:
             with torch.no_grad():
                 for sequence_features, forecast_features, targets, _ in self.validation_data_loader:
                     consumption_forecasts = self.n_in_one_out(sequence_features, forecast_features, targets, self.feature_indices_validation)
-                    consumption_forecasts_reversed = self.preprocessor.reverse_standardize_targets(consumption_forecasts)
-                    targets_reversed = self.preprocessor.reverse_standardize_targets(targets)
+                    consumption_forecasts_reversed = self.preprocessor.reverse_standardize_targets(consumption_forecasts, bidding_area=self.bidding_area)
+                    targets_reversed = self.preprocessor.reverse_standardize_targets(targets, bidding_area=self.bidding_area)
                     validation_loss = self.loss_function(consumption_forecasts_reversed, targets_reversed)
                     running_validation_loss.append(validation_loss.item())
             avg_validation_loss = np.mean(running_validation_loss)
@@ -308,7 +323,7 @@ class ModelController:
 
             if self.train_config["save_model"]:
                 current_time = datetime.now().strftime("%d-%m-%Y-%H%M%S")
-                model_save_path = os.path.join(os.path.dirname(__file__), "saved_models", self.model.__class__.__name__, f"{current_time}_{self.train_config['bidding_area']}_epoch_{epoch+1}.pt")
+                model_save_path = os.path.join(os.path.dirname(__file__), "saved_models", self.model.__class__.__name__, f"{current_time}_{self.bidding_area}_epoch_{epoch+1}.pt")
                 os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
                 torch.save(self.model.state_dict(), model_save_path)
                 print(f"Model saved to {model_save_path}")
@@ -343,8 +358,8 @@ class ModelController:
             # Perform n in, 1 out
             consumption_forecasts = self.n_in_one_out(sequence_features, forecast_features, targets, self.feature_indices_train)
 
-            consumption_forecasts_reversed = self.preprocessor.reverse_standardize_targets(consumption_forecasts)
-            targets_reversed = self.preprocessor.reverse_standardize_targets(targets)
+            consumption_forecasts_reversed = self.preprocessor.reverse_standardize_targets(consumption_forecasts, bidding_area=self.bidding_area)
+            targets_reversed = self.preprocessor.reverse_standardize_targets(targets, bidding_area=self.bidding_area)
 
             # Compute loss and gradients
             loss = self.loss_function(consumption_forecasts_reversed, targets_reversed)
@@ -401,15 +416,16 @@ class ModelController:
         with torch.no_grad():
             for sequence_features, forecast_features, targets, timestamps in self.test_data_loader:
                 consumption_forecasts = self.n_in_one_out(sequence_features, forecast_features, targets, self.feature_indices_test)
-                consumption_forecasts_reversed = self.preprocessor.reverse_standardize_targets(consumption_forecasts)
-                targets_reversed = self.preprocessor.reverse_standardize_targets(targets)
+                consumption_forecasts_reversed = self.preprocessor.reverse_standardize_targets(consumption_forecasts, bidding_area=self.bidding_area)
+                targets_reversed = self.preprocessor.reverse_standardize_targets(targets, bidding_area=self.bidding_area)
                 test_loss = self.loss_function(consumption_forecasts_reversed, targets_reversed)
 
-                # For every case in minibatch
-                for i in range(len(sequence_features)):
-                    historical_consumption = sequence_features[i, :, 0]
-                    historical_consumption_reversed = self.preprocessor.reverse_standardize_targets(historical_consumption)
-                    self.forecast_visualizer.add_datapoint(historical_consumption_reversed, consumption_forecasts_reversed[i], targets_reversed[i], timestamps[i])
+                if self.global_config["visualize"]:
+                    # For every case in minibatch
+                    for i in range(len(sequence_features)):
+                        historical_consumption = sequence_features[i, :, 0]
+                        historical_consumption_reversed = self.preprocessor.reverse_standardize_targets(historical_consumption, bidding_area=self.bidding_area)
+                        self.forecast_visualizer.add_datapoint(historical_consumption_reversed, consumption_forecasts_reversed[i], targets_reversed[i], timestamps[i])
 
                 running_test_loss.append(test_loss.item())
 
@@ -417,7 +433,7 @@ class ModelController:
 
     def compare_models(self):
         print("\033[1;32m" + "="*15 + " Comparing " + "="*15 + "\033[0m")
-        metrics_results = {}
+        self.metrics_results = {}
         # for i, (filename, model_class) in enumerate(compare_filenames):
         #     model_load_path = os.path.join(os.path.dirname(__file__), "saved_models", model_class.__name__, filename)
         #     if not os.path.exists(model_load_path):
@@ -465,7 +481,7 @@ class ModelController:
             self.forecast_visualizer.plot_consumption_forecast()
             self.forecast_visualizer.plot_error_statistics()
         elif self.mode == "compare":
-            self.evaluation_visualizer.plot_summary()
+            self.evaluation_visualizer.plot_summary(self.metrics_results)
 
 
 def main():
