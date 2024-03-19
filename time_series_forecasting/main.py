@@ -207,7 +207,6 @@ class ModelController:
             param.clear()
             param.update(new_param)
 
-
         # Feature selection
         print(f"Selected sequence features: {self.selected_sequence_features}")
         print(f"Selected forecast features: {self.selected_forecast_features}")
@@ -266,10 +265,122 @@ class ModelController:
         else:
             raise FileNotFoundError(f"No model found at {model_load_path}")
 
+    def setup_compare(self, df):
+        self.compare_config = self.global_config["COMPARE"]
+        self.bidding_area = self.compare_config["test_bidding_area"]
+        print(f"Bidding area used for comparing {self.bidding_area}")
 
-    def setup_compare(self):
-        # TODO setup data, load preprocessing params, load feature engineering and feature selection
-        pass
+        # Feature engineering
+        df = self.feature_engineering.add_features(df, self.bidding_area)
+        print(f"Feature engineering added features {self.feature_engineering.get_added_features()}")
+
+        self.compare_setup = {}
+        for i, (filename, model_class) in enumerate(self.compare_config["compare_filenames"]):
+            print("\033[92m" + f"Setup Model {i+1}" + "\033[0m")
+            model_load_path = os.path.join(os.path.dirname(__file__), "saved_models", model_class.__name__, filename)
+            config_path = model_load_path.replace(".pt", "_config.json")
+
+            # Load preprocessing and feature configuration
+            if os.path.exists(config_path):
+                with open(config_path, "r") as config_file:
+                    config = json.load(config_file)
+                    sequence_length = config["sequence_length"]
+                    forecast_horizon = config["forecast_horizon"]
+                    num_features = config["num_features"]
+                    selected_sequence_features = config["sequence_features"]
+                    selected_forecast_features = config["forecast_features"]
+                    selected_features_to_preprocess = config["features_to_preprocess"]
+                    preprocessing_params = config["preprocessing_params"]
+                print("Loaded preprocessing parameters and feature engineering configurations")
+            else:
+                raise FileNotFoundError(f"No configuration found at {config_path}")
+
+            # Select correct bidding area
+            pattern = re.compile(r"NO\d+") # NO1, NO2, NO3, and so on
+            for feature_list in [selected_sequence_features, selected_forecast_features, selected_features_to_preprocess]:
+                for j, feature_name in enumerate(feature_list):
+                    match = pattern.search(feature_name)
+                    if match:
+                        old_area = match.group()
+                        corrected_feature = feature_name.replace(old_area, self.bidding_area)
+                        feature_list[j] = corrected_feature
+            for param in preprocessing_params:
+                new_param = {}
+                for key, value in param.items():
+                    match = pattern.search(key)
+                    if match:
+                        old_area = match.group()
+                        corrected_key = key.replace(old_area, self.bidding_area)
+                        new_param[corrected_key] = value
+                    else:
+                        new_param[key] = value
+                param.clear()
+                param.update(new_param)
+
+            # Feature selection
+            print(f"Selected sequence features: {selected_sequence_features}")
+            print(f"Selected forecast features: {selected_forecast_features}")
+            print(f"Features queued for preprocessing: {selected_features_to_preprocess}")
+
+            # Create dataframes
+            if self.compare_config["test_using_all_data"]:
+                test_df = df.copy()
+                print(f"Created dataframe for test using all data: {len(test_df)}")
+            else:
+                # Split dataframe into training, validation and test
+                df = df.copy()
+                train_size = int(0.7 * len(df))
+                validation_size = int(0.1 * len(df))
+                test_df = df[(train_size + validation_size):]
+                print(f"Split dataframe into train, validation and test with test size: {len(test_df)}")
+
+            # Preprocessing
+            preprocessor = Preprocessor()
+            preprocessor.set_params(preprocessing_params[0], preprocessing_params[1])
+            print("Preprocessing test data")
+            test_df = preprocessor.remove_spikes(test_df, features=selected_features_to_preprocess)
+            test_df = preprocessor.standardize(test_df, features=selected_features_to_preprocess)
+
+            # Create datasets
+            print("Creating datasets")
+            target_column = f"{self.bidding_area}_consumption"
+            print(f"Target column: {target_column}")
+            test_dataset = PowerConsumptionDataset(
+                data=test_df,
+                sequence_length=sequence_length,
+                forecast_horizon=forecast_horizon,
+                target_column=target_column,
+                sequence_features=selected_sequence_features,
+                forecast_features=selected_forecast_features
+            )
+            print(f"Test dataset created with {len(test_dataset)} samples from bidding area {self.bidding_area}")
+
+            feature_indices_test = test_dataset.feature_indices
+            if feature_indices_test:
+                print("Retrieved feature indices for input tensors")
+
+            test_data_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, drop_last=True)
+            if test_data_loader:
+                print("Instantiated data loaders")
+
+            # Instantiate model
+            model = model_class(num_features=num_features, sequence_length=sequence_length)
+            print(f"Model: {model.__class__.__name__}")
+
+            # Load model
+            if os.path.exists(model_load_path):
+                model.load_state_dict(torch.load(model_load_path))
+                print(f"Model loaded from {model_load_path}")
+            else:
+                raise FileNotFoundError(f"No model found at {model_load_path}")
+
+            self.compare_setup[f"{i+1}. {model_class.__name__}"] = (
+                model,
+                test_data_loader,
+                forecast_horizon,
+                feature_indices_test,
+                preprocessor
+            )
 
     def run(self):
         if self.mode == "train":
@@ -277,7 +388,7 @@ class ModelController:
         elif self.mode == "load":
             self.run_load()
         elif self.mode == "compare":
-            self.run_compare()
+            self.compare_models()
 
         if self.global_config["visualize"]:
             self.visualize()
@@ -288,13 +399,6 @@ class ModelController:
 
     def run_load(self):
         self.test()
-
-    def run_compare(self):
-        # metrics_result = compare_models(test_data_loader, feature_indices, global_config["compare_filenames"], preprocessor)
-        # print(metrics_result)
-        # evaluation_visualizer.plot_summary(metrics_result)
-        # self.compare_models()
-        pass
 
     def train(self):
         print("\033[1;32m" + "="*15 + " Training " + "="*15 + "\033[0m")
@@ -372,7 +476,11 @@ class ModelController:
 
         return np.mean(running_loss)
 
-    def n_in_one_out(self, sequence_features, forecast_features, targets, feature_indices):
+    def n_in_one_out(self, sequence_features, forecast_features, targets, feature_indices, model=None, forecast_horizon=None):
+        if model:
+            self.model = model
+        if forecast_horizon:
+            self.forecast_horizon = forecast_horizon
         # Instantiate consumption_forecasts tensor for minibatch
         consumption_forecasts = torch.zeros(targets.size())
 
@@ -434,43 +542,34 @@ class ModelController:
     def compare_models(self):
         print("\033[1;32m" + "="*15 + " Comparing " + "="*15 + "\033[0m")
         self.metrics_results = {}
-        # for i, (filename, model_class) in enumerate(compare_filenames):
-        #     model_load_path = os.path.join(os.path.dirname(__file__), "saved_models", model_class.__name__, filename)
-        #     if not os.path.exists(model_load_path):
-        #         print(f"Model file {model_load_path} not found.")
-        #         continue
 
-        #     # TODO fix hard coded value
-        #     model = model_class(num_features=2, sequence_length=global_config["sequence_length"])
-        #     model.load_state_dict(torch.load(model_load_path))
-        #     model.eval()
+        for name, (model, test_data_loader, forecast_horizon, feature_indices_test, preprocessor) in self.compare_setup.items():
+            model.eval()
+            with torch.no_grad():
+                all_predictions = []
+                all_targets = []
+                for sequence_features, forecast_features, targets, _ in test_data_loader:
+                    consumption_forecasts = self.n_in_one_out(sequence_features, forecast_features, targets, feature_indices_test, model=model, forecast_horizon=forecast_horizon)
+                    consumption_forecasts_reversed = preprocessor.reverse_standardize_targets(consumption_forecasts, bidding_area=self.bidding_area)
+                    targets_reversed = preprocessor.reverse_standardize_targets(targets, bidding_area=self.bidding_area)
+                    all_predictions.append(consumption_forecasts_reversed)
+                    all_targets.append(targets_reversed)
 
-        #     with torch.no_grad():
-        #         all_predictions = []
-        #         all_targets = []
-        #         for sequence_features, temperature_forecasts, targets, _ in test_data_loader:
-        #             consumption_forecasts = n_in_one_out(model, sequence_features, temperature_forecasts, targets, feature_indices)
-        #             consumption_forecasts_reversed = preprocessor.reverse_standardize_targets(consumption_forecasts)
-        #             targets_reversed = preprocessor.reverse_standardize_targets(targets)
-        #             all_predictions.append(consumption_forecasts_reversed)
-        #             all_targets.append(targets_reversed)
+                # Concatenate all batch predictions and targets
+                all_predictions = torch.cat(all_predictions, dim=0)
+                all_targets = torch.cat(all_targets, dim=0)
 
-        #         # Concatenate all batch predictions and targets
-        #         all_predictions = torch.cat(all_predictions, dim=0)
-        #         all_targets = torch.cat(all_targets, dim=0)
+                rmse = torch.sqrt(torch.nn.functional.mse_loss(all_predictions, all_targets))
+                mae = torch.nn.functional.l1_loss(all_predictions, all_targets)
+                mape = torch.mean(torch.abs((all_predictions - all_targets) / all_targets)) * 100
 
-        #         rmse = torch.sqrt(torch.nn.functional.mse_loss(all_predictions, all_targets))
-        #         mae = torch.nn.functional.l1_loss(all_predictions, all_targets)
-        #         mape = torch.mean(torch.abs((all_predictions - all_targets) / all_targets)) * 100
+            self.metrics_results[name] = {
+                "RMSE": rmse.item(),
+                "MAE": mae.item(),
+                "MAPE": mape.item()
+            }
 
-        #     metrics_results[f"{i+1}. {model_class.__name__}"] = {
-        #         "RMSE": rmse.item(),
-        #         "MAE": mae.item(),
-        #         "MAPE": mape.item()
-        #     }
-
-        # return metrics_results
-        pass
+        print(self.metrics_results)
 
     def visualize(self):
         if self.mode == "train":
