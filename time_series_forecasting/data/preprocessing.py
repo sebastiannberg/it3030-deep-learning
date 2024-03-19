@@ -11,6 +11,10 @@ class Preprocessor:
     def get_params(self):
         return self.spike_params, self.scaler_params
 
+    def set_params(self, spike_params, scaler_params):
+        self.spike_params = spike_params
+        self.scaler_params = scaler_params
+
     def remove_spikes(self, df, features, fit=False):
         """
         Detect and remove spikes using a rolling window median.
