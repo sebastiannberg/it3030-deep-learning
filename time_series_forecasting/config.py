@@ -18,7 +18,7 @@ global_config = {
         "loss_function": nn.L1Loss,
         "lr": 0.0001,
         "epochs": 2,
-        "save_model": True
+        "save_model": False
     },
     "LOAD": {
         "enabled": False,
@@ -31,6 +31,8 @@ global_config = {
         "compare_filenames": (
             ("17-03-2024-164326_NO1_epoch_2.pt", CNNForecastingModel),
             ("17-03-2024-164326_NO1_epoch_2.pt", CNNForecastingModel),
-        )
+        ),
+        "test_using_all_data": False,
+        "test_bidding_area": "NO1"
     }
 }

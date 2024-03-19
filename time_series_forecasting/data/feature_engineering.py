@@ -4,6 +4,12 @@ import pandas as pd
 
 class FeatureEngineering:
 
+    def __init__(self):
+        self.added_features = []
+
+    def get_added_features(self):
+        return self.added_features
+
     def hour_feature(self, df):
         df['hour'] = df['timestamp'].dt.hour
         # Apply sine and cosine transformations
@@ -40,14 +46,14 @@ class FeatureEngineering:
         return df, ['lag_48h_consumption', 'lag_mean_24h_consumption']
 
     def add_features(self, df, bidding_area):
-        added_features = []
+        self.added_features = []
         df["timestamp"] = pd.to_datetime(df["timestamp"])
 
         for feature_method in [self.hour_feature, self.weekday_feature, self.week_feature, self.month_feature, lambda df: self.lag_features(df, bidding_area)]:
             df, features = feature_method(df)
-            added_features.extend(features)
+            self.added_features.extend(features)
 
         # Drop rows with NaN after introducing lag features
         df.dropna(inplace=True)
 
-        return df, added_features
+        return df
