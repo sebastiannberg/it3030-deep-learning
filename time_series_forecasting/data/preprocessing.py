@@ -71,7 +71,6 @@ class Preprocessor:
         if not self.scaler_params:
             raise ValueError("Scaler parameters not initialized. Call standardize with fit=True first.")
 
-        # TODO remove hard coded value
         params = self.scaler_params[f"{bidding_area}_consumption"]
         mean = params['mean']
         std = params['std']
