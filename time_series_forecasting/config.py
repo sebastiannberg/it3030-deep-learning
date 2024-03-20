@@ -7,12 +7,12 @@ from models.feed_forward_regression_model import FeedForwardRegressionModel
 
 
 global_config = {
-    "csv_filename": "consumption_and_temperatures.csv",
+    "csv_filename": "test_set.csv",
     "model": CNNForecastingModel,
     "visualize": True,
     # Enable only one of TRAIN, LOAD or COMPARE
     "TRAIN": {
-        "enabled": True,
+        "enabled": False,
         "bidding_area": "NO1",
         "sequence_length": 24,
         "forecast_horizon": 24,
@@ -23,9 +23,9 @@ global_config = {
         "save_model": True
     },
     "LOAD": {
-        "enabled": False,
+        "enabled": True,
         "load_model_filename": "19-03-2024-150330_NO1_epoch_2.pt",
-        "test_using_all_data": False,
+        "test_using_all_data": True,
         "test_bidding_area": "NO1"
     },
     "COMPARE": {
