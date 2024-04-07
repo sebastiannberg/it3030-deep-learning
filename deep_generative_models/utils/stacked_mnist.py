@@ -66,6 +66,8 @@ class StackedMNISTData(Dataset):
     """
 
     def __init__(self, root: str | Path, mode: DataMode = DataMode.MONO | DataMode.BINARY, train: bool = True):
+        self.mode = mode
+
         transforms = [v2.ToDtype(torch.float32), Scale()]
 
         # Make binary?
@@ -98,7 +100,16 @@ class StackedMNISTData(Dataset):
         self.targets = targets
 
     def __getitem__(self, index):
-        return self.transform(self.data[index]), self.targets[index]
+        x = self.data[index]
+
+        # Add dimension for channels
+        if len(x.size()) == 2:
+            x = x.unsqueeze(-1)
+
+        x = self.transform(x)
+        y = self.targets[index]
+        print(x.size())
+        return x, y
 
     def __len__(self) -> int:
         return len(self.data)

@@ -13,12 +13,20 @@ data_path = os.path.join(current_dir_path, "data")
 dataset = StackedMNISTData(root=data_path, mode=DataMode.MONO | DataMode.BINARY)
 data_loader = DataLoader(dataset, batch_size=16, shuffle=True)
 
-generated_examples = torch.zeros((16, 28, 28))
+# Generate Examples
+generated_examples = torch.zeros((16, 28, 28, 1))
+
 # Visualize Generated Examples
 visualize_generated_examples(generated_examples)
 
 # Verification Net
-verification_net_path = os.path.join(current_dir_path, "saved_models", "verification_net", "mono")
-verification_net = VerificationNet(file_name=verification_net_path)
-predictability, accuracy = verification_net.check_predictability(generated_examples)
-print(predictability, accuracy)
+verification_net_path = os.path.join(current_dir_path, "utils", "saved_weights", "verification_net.mono.weights.h5")
+net = VerificationNet(file_name=verification_net_path)
+cov = net.check_class_coverage(data=generated_examples, tolerance=0.98)
+pred, acc = net.check_predictability(data=generated_examples)
+if cov != None:
+    print(f"Coverage: {100*cov:.2f}%")
+if pred != None:
+    print(f"Predictability: {100*pred:.2f}%")
+if acc != None:
+    print(f"Accuracy: {100 * acc:.2f}%")

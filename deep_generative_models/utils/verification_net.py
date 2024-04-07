@@ -4,7 +4,7 @@ from keras.layers import Conv2D, Dense, Dropout, Flatten, MaxPooling2D
 from keras.models import Sequential
 import os
 
-from stacked_mnist_tf import DataMode, StackedMNISTData
+from utils.stacked_mnist_tf import DataMode, StackedMNISTData
 
 
 class VerificationNet:
