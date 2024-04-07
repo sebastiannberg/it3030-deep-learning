@@ -11,3 +11,6 @@ def visualize_dataset(data_loader, num_images):
             ax[i // grid_size, i % grid_size].axis('off')
         break
     plt.show()
+
+def visualize_generated_examples(generated_examples):
+    pass

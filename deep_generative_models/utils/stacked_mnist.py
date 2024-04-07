@@ -1,14 +1,10 @@
-from enum import Flag, auto
-from pathlib import Path
-
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-import torchvision
 from torchvision.datasets import MNIST
-
-torchvision.disable_beta_transforms_warning()
 from torchvision.transforms import v2
+from enum import Flag, auto
+from pathlib import Path
 
 
 class DataMode(Flag):
@@ -78,7 +74,7 @@ class StackedMNISTData(Dataset):
 
         self.transform = v2.Compose(transforms)
 
-        dataset = MNIST(root, train=train, download=True, transform=(transforms))
+        dataset = MNIST(root, train=train, download=True)
 
         data = dataset.data
         targets = dataset.targets
