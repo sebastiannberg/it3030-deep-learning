@@ -108,7 +108,6 @@ class StackedMNISTData(Dataset):
 
         x = self.transform(x)
         y = self.targets[index]
-        print(x.size())
         return x, y
 
     def __len__(self) -> int:
