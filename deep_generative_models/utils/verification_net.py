@@ -3,6 +3,7 @@ import tensorflow as tf
 from keras.layers import Conv2D, Dense, Dropout, Flatten, MaxPooling2D
 from keras.models import Sequential
 import os
+import torch
 
 from utils.stacked_mnist_tf import DataMode, StackedMNISTData
 
@@ -156,6 +157,10 @@ class VerificationNet:
         predictability = len(predictions) / len(data)
 
         if correct_labels is not None:
+            if isinstance(correct_labels, torch.Tensor):
+                correct_labels = correct_labels.numpy()
+                correct_labels = correct_labels.astype(np.float64)
+
             # Drop those that were below threshold
             correct_labels = correct_labels[beliefs >= tolerance]
             accuracy = np.sum(predictions == correct_labels) / len(data)
@@ -166,12 +171,11 @@ class VerificationNet:
 
 
 if __name__ == "__main__":
-    gen = StackedMNISTData(mode=DataMode.MONO_BINARY_COMPLETE, default_batch_size=2048)
+    gen = StackedMNISTData(mode=DataMode.MONO_FLOAT_COMPLETE, default_batch_size=2048)
     current_dir_path = os.path.dirname(os.path.realpath(__file__))
-    net = VerificationNet(force_learn=False, file_name=os.path.join(current_dir_path, "saved_weights", "verification_net.mono.weights.h5"))
+    net = VerificationNet(force_learn=False, file_name=os.path.join(current_dir_path, "saved_weights", "mono_float_complete.weights.h5"))
     net.train(generator=gen, epochs=5)
 
-    # I have no data generator (VAE or whatever) here, so just use a sampled set
     img, labels = gen.get_random_batch(training=True, batch_size=25000)
     cov = net.check_class_coverage(data=img, tolerance=0.98)
     pred, acc = net.check_predictability(data=img, correct_labels=labels)

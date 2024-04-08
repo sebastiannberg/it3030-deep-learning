@@ -8,16 +8,15 @@ import time
 from models.autoencoder import Autoencoder
 from utils.stacked_mnist import StackedMNISTData, DataMode
 from utils.verification_net import VerificationNet
-from utils.visualization import visualize_generated_examples
+from utils.visualization import visualize_reconstructions, visualize_generated_examples
 
 # Setup
 TRAIN = True
-
-current_dir_path = os.path.dirname(os.path.realpath(__file__))
-data_path = os.path.join(current_dir_path, "data")
-mono_dataset = StackedMNISTData(root=data_path, mode=DataMode.MONO | DataMode.BINARY)
+CURRENT_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+DATA_PATH = os.path.join(CURRENT_DIR_PATH, "data")
+mono_dataset = StackedMNISTData(root=DATA_PATH, mode=DataMode.MONO | DataMode.BINARY)
+color_dataset = StackedMNISTData(root=DATA_PATH, mode=DataMode.COLOR | DataMode.BINARY)
 mono_data_loader = DataLoader(mono_dataset, batch_size=16, shuffle=True)
-color_dataset = StackedMNISTData(root=data_path, mode=DataMode.COLOR | DataMode.BINARY)
 color_data_loader = DataLoader(color_dataset, batch_size=16, shuffle=True)
 
 # Train Model
@@ -48,20 +47,32 @@ loss_function = nn.MSELoss()
 if TRAIN:
     train(autoencoder, optimizer, loss_function, mono_data_loader, num_epochs=3)
 
+# Check Accuracy
+images, targets = next(iter(mono_data_loader))
+with torch.no_grad():
+    predictions = autoencoder(images)
+visualize_reconstructions(images, predictions, targets, max_images=4)
+
+verification_net_path = os.path.join(CURRENT_DIR_PATH, "utils", "saved_weights", "mono_float_complete.weights.h5")
+net = VerificationNet(file_name=verification_net_path)
+
+all_images, all_targets = [], []
+for images, targets in mono_data_loader:
+    all_images.append(images)
+    all_targets.append(targets)
+all_images = torch.cat(all_images, dim=0)
+all_targets = torch.cat(all_targets, dim=0)
+with torch.no_grad():
+    all_predictions = autoencoder(all_images)
+
+predictability, acc = net.check_predictability(data=all_images, correct_labels=all_targets, tolerance=0.8)
+if predictability != None:
+    print(f"Predictability: {100 * predictability:.2f}%")
+if acc != None:
+    print(f"Accuracy: {100 * acc:.2f}%")
+
 # Generate Examples
 generated_examples_mono = torch.zeros((16, 28, 28, 1))
 
 # Visualize Generated Examples
 visualize_generated_examples(generated_examples_mono)
-
-# Verification Net
-verification_net_path = os.path.join(current_dir_path, "utils", "saved_weights", "verification_net.mono.weights.h5")
-net = VerificationNet(file_name=verification_net_path)
-cov = net.check_class_coverage(data=generated_examples_mono, tolerance=0.98)
-pred, acc = net.check_predictability(data=generated_examples_mono)
-if cov != None:
-    print(f"Coverage: {100*cov:.2f}%")
-if pred != None:
-    print(f"Predictability: {100*pred:.2f}%")
-if acc != None:
-    print(f"Accuracy: {100 * acc:.2f}%")
