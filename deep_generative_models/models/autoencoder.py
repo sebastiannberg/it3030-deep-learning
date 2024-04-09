@@ -1,16 +1,6 @@
 import torch.nn as nn
 
 
-class PrintSize(nn.Module):
-
-    def __init__(self, message):
-        super().__init__()
-        self.message = message
-
-    def forward(self, x):
-        print(self.message, x.size())
-        return x
-
 class Autoencoder(nn.Module):
 
     def __init__(self, channels=1):

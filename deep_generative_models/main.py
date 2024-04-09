@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import os
 import time
+from datetime import datetime
 
 from models.autoencoder import Autoencoder
 from utils.stacked_mnist import StackedMNISTData, DataMode
@@ -11,7 +12,11 @@ from utils.verification_net import VerificationNet
 from utils.visualization import visualize_reconstructions, visualize_generated_examples
 
 # Setup
-TRAIN = True
+TRAIN = False
+MODE = "mono" # Options: "mono", "color"
+MODEL_FILENAME = "autoencoder_mono_1712603988" # Set TRAIN to False to load
+NUM_EPOCHS = 7
+LEARNING_RATE = 0.001
 CURRENT_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(CURRENT_DIR_PATH, "data")
 mono_dataset = StackedMNISTData(root=DATA_PATH, mode=DataMode.MONO | DataMode.BINARY)
@@ -41,31 +46,48 @@ def train(model, optimizer, loss_function, data_loader, num_epochs):
     minutes, seconds = divmod(end_time-start_time, 60)
     print(f"Total training time: {int(minutes)} minutes and {round(seconds, 2)} seconds")
 
-autoencoder = Autoencoder(channels=1)
-optimizer = optim.Adam(autoencoder.parameters(), lr=0.001)
+if MODE == "mono":
+    autoencoder = Autoencoder(channels=1)
+    data_loader = mono_data_loader
+elif MODE == "color":
+    autoencoder = Autoencoder(channels=3)
+    data_loader = color_data_loader
+else:
+    raise ValueError("MODE must be either 'mono' or 'color'")
+
+optimizer = optim.Adam(autoencoder.parameters(), lr=LEARNING_RATE)
 loss_function = nn.MSELoss()
+
 if TRAIN:
-    train(autoencoder, optimizer, loss_function, mono_data_loader, num_epochs=3)
+    train(autoencoder, optimizer, loss_function, data_loader, num_epochs=NUM_EPOCHS)
+    torch.save(autoencoder.state_dict(), os.path.join(CURRENT_DIR_PATH, "saved_models", f"autoencoder_{MODE}_{int(datetime.now().timestamp())}"))
+else:
+    print("Loading model...")
+    autoencoder.load_state_dict(torch.load(os.path.join(CURRENT_DIR_PATH, "saved_models", MODEL_FILENAME)))
 
 # Check Accuracy
-images, targets = next(iter(mono_data_loader))
-with torch.no_grad():
-    predictions = autoencoder(images)
-visualize_reconstructions(images, predictions, targets, max_images=4)
-
 verification_net_path = os.path.join(CURRENT_DIR_PATH, "utils", "saved_weights", "mono_float_complete.weights.h5")
 net = VerificationNet(file_name=verification_net_path)
 
 all_images, all_targets = [], []
-for images, targets in mono_data_loader:
+for images, targets in data_loader:
     all_images.append(images)
     all_targets.append(targets)
 all_images = torch.cat(all_images, dim=0)
 all_targets = torch.cat(all_targets, dim=0)
 with torch.no_grad():
     all_predictions = autoencoder(all_images)
+# visualize_reconstructions(all_images, all_predictions)
 
-predictability, acc = net.check_predictability(data=all_images, correct_labels=all_targets, tolerance=0.8)
+if MODE == "mono":
+    tolerance = 0.8
+    predictability, acc = net.check_predictability(data=all_predictions, correct_labels=all_targets, tolerance=tolerance)
+elif MODE == "color":
+    tolerance = 0.5
+    # Correctly order channels for hundreds, tens, and ones
+    all_predictions = torch.flip(all_predictions, (3,))
+    predictability, acc = net.check_predictability(data=all_predictions, correct_labels=all_targets, tolerance=tolerance)
+
 if predictability != None:
     print(f"Predictability: {100 * predictability:.2f}%")
 if acc != None:
