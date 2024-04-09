@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+import numpy as np
 import os
 import time
 from datetime import datetime
@@ -9,13 +10,15 @@ from datetime import datetime
 from models.autoencoder import Autoencoder
 from utils.stacked_mnist import StackedMNISTData, DataMode
 from utils.verification_net import VerificationNet
-from utils.visualization import visualize_reconstructions, visualize_generated_examples
+from utils.visualization import visualize_images, visualize_reconstructions
 
 # Setup
 TRAIN = False
-MODE = "mono" # Options: "mono", "color"
-MODEL_FILENAME = "autoencoder_mono_1712603988" # Set TRAIN to False to load
-NUM_EPOCHS = 7
+MODE = "color" # Options: "mono", "color"
+MODEL_FILENAME = "autoencoder_color_1712701349" # Set TRAIN to False to load
+MONO_ENCODING_DIM = 16
+COLOR_ENCODING_DIM = 128
+NUM_EPOCHS = 10
 LEARNING_RATE = 0.001
 CURRENT_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(CURRENT_DIR_PATH, "data")
@@ -47,10 +50,10 @@ def train(model, optimizer, loss_function, data_loader, num_epochs):
     print(f"Total training time: {int(minutes)} minutes and {round(seconds, 2)} seconds")
 
 if MODE == "mono":
-    autoencoder = Autoencoder(channels=1)
+    autoencoder = Autoencoder(channels=1, encoding_dim=MONO_ENCODING_DIM)
     data_loader = mono_data_loader
 elif MODE == "color":
-    autoencoder = Autoencoder(channels=3)
+    autoencoder = Autoencoder(channels=3, encoding_dim=COLOR_ENCODING_DIM)
     data_loader = color_data_loader
 else:
     raise ValueError("MODE must be either 'mono' or 'color'")
@@ -94,7 +97,24 @@ if acc != None:
     print(f"Accuracy: {100 * acc:.2f}%")
 
 # Generate Examples
-generated_examples_mono = torch.zeros((16, 28, 28, 1))
-
-# Visualize Generated Examples
-visualize_generated_examples(generated_examples_mono)
+with torch.no_grad():
+    x = all_images.permute(0, 3, 1, 2)
+    x = autoencoder.encoder(x)
+    x = autoencoder.bottleneck(x)
+x = x.numpy()
+# Mean of each dimension
+mean = np.mean(x, axis=0)
+# Standard deviation of each dimension
+std = np.std(x, axis=0)
+# Generate random encodings with mean and std
+if MODE == "mono":
+    z = np.random.normal(mean, std, (16, MONO_ENCODING_DIM)).astype(np.float32)
+elif MODE == "color":
+    z = np.random.normal(mean, std, (16, COLOR_ENCODING_DIM)).astype(np.float32)
+z_tensor = torch.from_numpy(z)
+with torch.no_grad():
+    generated = autoencoder.expand(z_tensor)
+    generated = generated.view(-1, 64, 4, 4)
+    generated = autoencoder.decoder(generated)
+    generated = generated.permute(0, 2, 3, 1)
+visualize_images(title="Generated Images", images=generated)

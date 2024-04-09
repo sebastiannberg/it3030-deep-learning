@@ -163,6 +163,8 @@ class VerificationNet:
 
             # Drop those that were below threshold
             correct_labels = correct_labels[beliefs >= tolerance]
+            print(correct_labels)
+            print(predictions)
             accuracy = np.sum(predictions == correct_labels) / len(data)
         else:
             accuracy = None

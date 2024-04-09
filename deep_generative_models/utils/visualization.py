@@ -2,13 +2,14 @@ import matplotlib.pyplot as plt
 import torch
 
 
-def visualize_images(title: str, images: torch.Tensor, targets: torch.Tensor):
+def visualize_images(title: str, images: torch.Tensor, targets: torch.Tensor = None):
     num_images = images.size(0)
     grid_size = int(num_images**0.5)
     fig, ax = plt.subplots(grid_size, grid_size, figsize=(10, 10))
     for i in range(num_images):
         ax[i // grid_size, i % grid_size].imshow(images[i].squeeze(), cmap='gray')
-        ax[i // grid_size, i % grid_size].title.set_text(str(targets[i].item()))
+        if targets:
+            ax[i // grid_size, i % grid_size].title.set_text(str(targets[i].item()))
         ax[i // grid_size, i % grid_size].axis('off')
     fig.suptitle(title)
     plt.show()
@@ -25,6 +26,3 @@ def visualize_reconstructions(original_images: torch.Tensor, reconstructions: to
         axes[1].title.set_text("Reconstruction")
         axes[1].axis('off')
     plt.show()
-
-def visualize_generated_examples(generated_examples):
-    pass
