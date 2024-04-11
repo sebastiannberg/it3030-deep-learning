@@ -13,9 +13,9 @@ from utils.verification_net import VerificationNet
 from utils.visualization import visualize_images, visualize_reconstructions
 
 # SETUP
-MODE = "mono" # Options: "mono", "color"
+MODE = "color" # Options: "mono", "color"
 TRAIN = False
-MODEL_FILENAME = "mono_1712696920" # Set TRAIN to False to load
+MODEL_FILENAME = "color_1712701349" # Set TRAIN to False to load
 TRAIN_ANOMALY = False
 ANOMALY_MODEL_FILENAME = "mono_missing_1712752424" # Set TRAIN_ANOMALY to False to load
 MONO_ENCODING_DIM = 16
@@ -34,10 +34,10 @@ mono_missing_data_loader = DataLoader(mono_missing_dataset, batch_size=16, shuff
 color_missing_data_loader = DataLoader(color_missing_dataset, batch_size=16, shuffle=True)
 
 # TRAIN MODEL
-def train(model, optimizer, loss_function, data_loader, num_epochs):
+def train(model, optimizer, loss_function, data_loader):
     print("\033[1;32m" + "="*15 + " Training " + "="*15 + "\033[0m")
     start_time = time.time()
-    for epoch in range(num_epochs):
+    for epoch in range(NUM_EPOCHS):
         model.train()
         total_loss = 0.0
         total_batches = len(data_loader)
@@ -68,7 +68,7 @@ optimizer = optim.Adam(autoencoder.parameters(), lr=LEARNING_RATE)
 loss_function = nn.MSELoss()
 
 if TRAIN:
-    train(autoencoder, optimizer, loss_function, data_loader, num_epochs=NUM_EPOCHS)
+    train(autoencoder, optimizer, loss_function, data_loader)
     torch.save(autoencoder.state_dict(), os.path.join(CURRENT_DIR_PATH, "saved_models", "autoencoder", f"{MODE}_{int(datetime.now().timestamp())}"))
 else:
     print("Loading model...")
