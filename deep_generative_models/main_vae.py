@@ -1,9 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
-
 from pyro.infer import SVI, Trace_ELBO
 from pyro.optim import Adam
-
 import numpy as np
 import os
 import time
@@ -15,12 +13,14 @@ from utils.verification_net import VerificationNet
 from utils.visualization import visualize_images, visualize_reconstructions
 
 # SETUP
-MODE = "mono" # Options: "mono", "color"
+MODE = "color" # Options: "mono", "color"
 TRAIN = False
-MODEL_FILENAME = "mono_1712842393" # Set TRAIN to False to load
-MONO_ENCODING_DIM = 16
+MODEL_FILENAME = "color_1712861481" # Set TRAIN to False to load
+TRAIN_ANOMALY = False
+ANOMALY_MODEL_FILENAME = "color_missing_1713031126" # Set TRAIN_ANOMALY to False to load
+MONO_ENCODING_DIM = 32
 COLOR_ENCODING_DIM = 128
-NUM_EPOCHS = 3
+NUM_EPOCHS = 10
 LEARNING_RATE = 0.001
 CURRENT_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(CURRENT_DIR_PATH, "data")
@@ -89,7 +89,7 @@ all_images = torch.cat(all_images, dim=0)
 all_targets = torch.cat(all_targets, dim=0)
 with torch.no_grad():
     reconstructions = vae.reconstruct_img(all_images)
-visualize_reconstructions(all_images, reconstructions)
+# visualize_reconstructions(all_images, reconstructions)
 
 if MODE == "mono":
     tolerance = 0.8
@@ -103,3 +103,69 @@ if predictability != None:
     print(f"Predictability: {100 * predictability:.2f}%")
 if acc != None:
     print(f"Accuracy: {100 * acc:.2f}%")
+
+# GENERATE NEW IMAGES
+# Generate random encodings
+if MODE == "mono":
+    z = np.random.randn(1000, MONO_ENCODING_DIM).astype(np.float32)
+elif MODE == "color":
+    z = np.random.randn(1000, COLOR_ENCODING_DIM).astype(np.float32)
+z_tensor = torch.from_numpy(z)
+with torch.no_grad():
+    generated = vae.decoder(z_tensor)
+if MODE == "mono":
+    predictability, _ = net.check_predictability(data=generated, tolerance=0.8)
+    coverage = net.check_class_coverage(data=generated, tolerance=0.8)
+elif MODE == "color":
+    predictability, _ = net.check_predictability(data=generated, tolerance=0.5)
+    coverage = net.check_class_coverage(data=generated, tolerance=0.5)
+if predictability != None:
+    print(f"Predictability: {100 * predictability:.2f}%")
+if coverage != None:
+    print(f"Coverage: {100 * coverage:.2f}%")
+# visualize_images(title="Generated Images", images=generated[:16])
+
+# ANOMALY DETECTION
+if MODE == "mono":
+    anomaly_vae = VAE(channels=1, encoding_dim=MONO_ENCODING_DIM)
+    data_loader = mono_missing_data_loader
+elif MODE == "color":
+    anomaly_vae = VAE(channels=3, encoding_dim=COLOR_ENCODING_DIM)
+    data_loader = color_missing_data_loader
+else:
+    raise ValueError("MODE must be either 'mono' or 'color'")
+
+adam_args = {"lr": LEARNING_RATE}
+optimizer = Adam(adam_args)
+svi = SVI(vae.model, vae.guide, optimizer, loss=Trace_ELBO())
+
+if TRAIN_ANOMALY:
+    train(svi, data_loader)
+    torch.save(anomaly_vae.state_dict(), os.path.join(CURRENT_DIR_PATH, "saved_models", "vae", f"{MODE}_missing_{int(datetime.now().timestamp())}"))
+else:
+    print("Loading model...")
+    anomaly_vae.load_state_dict(torch.load(os.path.join(CURRENT_DIR_PATH, "saved_models", "vae", ANOMALY_MODEL_FILENAME)))
+
+print("Calculating probabilities...")
+probabilities = []
+with torch.no_grad():
+    for i, image in enumerate(all_images[:500]):
+        print(f"\rImage {i+1} of {500}", end="")
+        if MODE == "mono":
+            z = np.random.randn(1000, MONO_ENCODING_DIM).astype(np.float32)
+        elif MODE == "color":
+            z = np.random.randn(1000, COLOR_ENCODING_DIM).astype(np.float32)
+        z_tensor = torch.from_numpy(z)
+        image = image[None, :, :, :]  # Ensure image has a batch dimension
+        image_repeated = image.repeat(1000, 1, 1, 1)
+        reconstructions = vae.decoder(z_tensor)
+        log_p_x_given_z = -torch.nn.functional.binary_cross_entropy(reconstructions, image_repeated)
+        p_x_estimated = torch.exp(log_p_x_given_z)
+        # print(p_x_estimated)
+        probabilities.append((image, p_x_estimated.item()))
+
+print()
+sorted_probabilites = sorted(probabilities, key=lambda x: x[1])
+print([x[1] for x in sorted_probabilites[:16]])
+most_anomalous_images = torch.cat([x[0] for x in sorted_probabilites], dim=0)[:16]
+visualize_images("Anomaly Detection", most_anomalous_images)

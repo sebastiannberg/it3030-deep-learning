@@ -22,28 +22,25 @@ class VAE(nn.Module):
             z_scale = x.new_ones(torch.Size((x.shape[0], self.encoding_dim)))
             # Sample from prior (value will be sampled by guide when computing the ELBO)
             z = pyro.sample("latent", dist.Normal(z_loc, z_scale).to_event(1))
-            # Decode the latent code z
             img = self.decoder(z)
-            # Score against actual images
             pyro.sample("obs", dist.Bernoulli(probs=img).to_event(3), obs=x)
 
-    # define the guide (i.e. variational distribution) q(z|x)
+    # Define the guide q(z|x)
     def guide(self, x):
-        # register PyTorch module `encoder` with Pyro
+        # Register PyTorch module `encoder` with Pyro
         pyro.module("encoder", self.encoder)
         with pyro.plate("data", x.shape[0]):
-            # use the encoder to get the parameters used to define q(z|x)
+            # Use the encoder to get the parameters used to define q(z|x)
             z_loc, z_scale = self.encoder(x)
-            # sample the latent code z
+            # Sample the latent code z
             pyro.sample("latent", dist.Normal(z_loc, z_scale).to_event(1))
 
-    # define a helper function for reconstructing images
     def reconstruct_img(self, x):
-        # encode image x
+        # Encode
         z_loc, z_scale = self.encoder(x)
-        # sample in latent space
+        # Sample in latent space
         z = dist.Normal(z_loc, z_scale).sample()
-        # decode the image (note we don't sample in image space)
+        # Decode
         img = self.decoder(z)
         return img
 
